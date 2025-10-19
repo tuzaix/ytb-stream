@@ -9,7 +9,7 @@ source .venv/bin/activate
 LOG_DIR=/home/work/logs
 
 # ytb api 验证文件目录，不同直播账号有不同的目录，跟视频文件一样的命名逻辑
-base_aut_dir=/home/ftpuser_hostinger/files/auth_impt
+base_auth_dir=/home/ftpuser_hostinger/files/auth_impt
 
 # 视频流的目录
 base_stream_dir=/home/ftpuser_hostinger/files/stream
@@ -77,22 +77,4 @@ for file in "$VIDEO_DIR"/*.mp4 "$VIDEO_DIR"/*.ts; do
 done
 
 wait
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
