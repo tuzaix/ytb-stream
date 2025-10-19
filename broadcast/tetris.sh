@@ -5,14 +5,14 @@
 bin=`dirname "$0"`
 bin=`cd $bin; pwd`
 
-category=$1
-timescope=$2
-duration=$3
-thedate=$4
-
 title="🔴 LIVE 🔴 Let's see who the real Tetris master is!"
 
-bash $bin/../start-broadcast.sh $category $title $timescope $duration $thedate
+timescope=$1
+duration=$2
+thedate=$3
+
+
+bash $bin/../start-broadcast.sh tetris $title $timescope $duration $thedate
 
 
 
