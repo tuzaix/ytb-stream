@@ -70,6 +70,7 @@ for file in "$VIDEO_DIR"/*.mp4 "$VIDEO_DIR"/*.ts; do
 	    echo "*****************************************************"
 	    echo ">>>> 正在推流文件: $file"
 	    echo "*****************************************************"
+        echo --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --duration "$the_duration" --privacy_status public
 		python $bin/main.py --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --duration "$the_duration" --privacy_status public > $log_file 2>&1 
 	    break
 	fi
