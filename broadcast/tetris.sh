@@ -12,7 +12,7 @@ duration=$2
 thedate=$3
 
 
-bash $bin/../start-broadcast.sh tetris $title $timescope $duration $thedate
+bash $bin/../start-broadcast.sh "tetris" "$title" "$timescope" "$duration" "$thedate"
 
 
 
