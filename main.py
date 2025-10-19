@@ -23,12 +23,19 @@ def main():
     parser.add_argument("--title", default="My Live Stream", help="Title of the live stream.")
     parser.add_argument("--description", default="", help="Description of the live stream.")
     parser.add_argument("--privacy_status", default="unlisted", help="Privacy status of the live stream (public, private, or unlisted).")
-    parser.add_argument("--proxy", help="Proxy server to use for requests (e.g., http://localhost:8080)", default=None)
+    parser.add_argument("--proxy", help="Proxy server to use for requests (e.g., http://localhost:7897)", default=None)
     parser.add_argument("--duration", type=float, default=3.0, help="Maximum duration of the live stream in hours. Set to 0 for no limit.")
     args = parser.parse_args()
 
     credentials_file = os.path.join(args.auth_dir, "client_secret.json")
     token_file = os.path.join(args.auth_dir, "token.json")
+
+    if not os.path.exists(credentials_file):
+        print(f"错误: 在目录 '{args.auth_dir}' 中未找到 'client_secret.json'。")
+        print("请从 Google Cloud Console 下载您的 OAuth 2.0 客户端ID文件，")
+        print(f"并将其重命名为 'client_secret.json' 后放置在 '{args.auth_dir}' 目录中。")
+        return
+
     client = YouTubeClient(credentials_file, token_file=token_file, proxy=args.proxy)
 
     print("正在检查已存在的直播...")
