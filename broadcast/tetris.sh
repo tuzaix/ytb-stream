@@ -5,7 +5,7 @@
 bin=`dirname "$0"`
 bin=`cd $bin; pwd`
 
-start_broadcast=$bin/../start-broadcast.sh
+cd $bin/../
 
 category=$1
 timescope=$2
@@ -14,7 +14,7 @@ thedate=$4
 
 title="🔴 LIVE 🔴 Let's see who the real Tetris master is!"
 
-bash $start_broadcast $category $title $timescope $duration $thedate
+bash start-broadcast.sh $category $title $timescope $duration $thedate
 
 
 
