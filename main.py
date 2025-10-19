@@ -1,0 +1,137 @@
+import argparse
+import time
+import threading
+import ctypes
+import os
+from youtube.client import YouTubeClient
+from streamer import Streamer
+
+def shutdown_after_duration(duration, duration_hours):
+    """
+    Waits for a given duration and then sends a Ctrl+C signal to the process
+    to trigger a graceful shutdown.
+    """
+    time.sleep(duration)
+    print(f"\n{duration_hours}-hour limit reached. Initiating shutdown...")
+    # On Windows, this sends a Ctrl+C event to the process console.
+    ctypes.windll.kernel32.GenerateConsoleCtrlEvent(0, 0)
+
+def main():
+    parser = argparse.ArgumentParser(description="YouTube Live Streamer")
+    parser.add_argument("--auth_dir", required=True, help="Directory for authentication files (client_secret.json and token.json).")
+    parser.add_argument("--video_file", required=True, help="Path to the video file to stream.")
+    parser.add_argument("--title", default="My Live Stream", help="Title of the live stream.")
+    parser.add_argument("--description", default="", help="Description of the live stream.")
+    parser.add_argument("--privacy_status", default="unlisted", help="Privacy status of the live stream (public, private, or unlisted).")
+    parser.add_argument("--proxy", help="Proxy server to use for requests (e.g., http://localhost:8080)", default=None)
+    parser.add_argument("--duration", type=float, default=3.0, help="Maximum duration of the live stream in hours. Set to 0 for no limit.")
+    args = parser.parse_args()
+
+    credentials_file = os.path.join(args.auth_dir, "client_secret.json")
+    token_file = os.path.join(args.auth_dir, "token.json")
+    client = YouTubeClient(credentials_file, token_file=token_file, proxy=args.proxy)
+
+    print("正在检查已存在的直播...")
+    existing_broadcasts = client.get_all_broadcasts()
+    if existing_broadcasts:
+        print(f"发现 {len(existing_broadcasts)} 个已存在的直播。正在关闭它们...")
+        for broadcast in existing_broadcasts:
+            broadcast_id = broadcast['id']
+            status = broadcast['status']['lifeCycleStatus']
+            if status in ['live', 'testing']:
+                print(f"正在关闭直播 {broadcast_id} (状态: {status})...")
+                try:
+                    client.close_live_broadcast(broadcast_id)
+                    print(f"直播 {broadcast_id} 已关闭。")
+                    time.sleep(3)  # Add a 3-second delay
+                except Exception as e:
+                    print(f"无法关闭直播 {broadcast_id}: {e}")
+            elif status == 'created':
+                print(f"正在删除直播 {broadcast_id} (状态: {status})...")
+                try:
+                    client.delete_live_broadcast(broadcast_id)
+                    print(f"直播 {broadcast_id} 已删除。")
+                    time.sleep(3)  # Add a 3-second delay
+                except Exception as e:
+                    print(f"无法删除直播 {broadcast_id}: {e}")
+        print("已完成关闭所有存在的直播。")
+    else:
+        print("未发现已存在的直播。")
+
+    time.sleep(3)  # Add a 3-second delay before creating a new broadcast
+    print("正在创建新的直播...")
+    broadcast, stream = client.create_live_broadcast(
+        args.title, args.description, args.privacy_status
+    )
+
+    if not broadcast or broadcast.get("status", {}).get("lifeCycleStatus") != "ready":
+        print("无法创建直播或直播状态不正确，请检查您的 YouTube 凭据和配额。")
+        if broadcast:
+            print(f"收到的直播状态: {broadcast.get('status', {}).get('lifeCycleStatus')}")
+        return
+
+    broadcast_id = broadcast["id"]
+    stream_url = f"{stream['cdn']['ingestionInfo']['ingestionAddress']}/{stream['cdn']['ingestionInfo']['streamName']}"
+
+    time.sleep(3)  # Add a 3-second delay before starting the stream
+    streamer = Streamer(stream_url, args.video_file)
+    print(f"Stream URL: {stream_url}")
+    print("Starting stream...")
+    streamer.start_streaming()
+
+    # Wait for the stream to be in the 'live' state
+    print("Waiting for YouTube to start the stream automatically (up to 2 minutes)...")
+    start_time = time.time()
+    while time.time() - start_time < 120:
+        status = client.get_live_broadcast_status(broadcast_id)
+        print(f"Current broadcast status: {status}")
+        if status == 'live':
+            print(f"Broadcast {broadcast_id} is now live.")
+            break
+        time.sleep(5)
+    else:
+        print("Timeout waiting for stream to go live. Aborting.")
+        streamer.stop_streaming()
+        # Since auto-start is enabled, the broadcast might be in a weird state.
+        # Deleting it is safer than trying to close it.
+        try:
+            client.delete_live_broadcast(broadcast_id)
+            print(f"直播 {broadcast_id} 已删除。")
+        except Exception as e:
+            print(f"无法删除直播 {broadcast_id}: {e}")
+        return
+
+    if args.duration > 0:
+        # Start the shutdown timer thread
+        duration_limit_seconds = args.duration * 60 * 60
+        monitor_thread = threading.Thread(
+            target=shutdown_after_duration,
+            args=(duration_limit_seconds, args.duration),
+            daemon=True
+        )
+        monitor_thread.start()
+        print(f"监控已启动：直播将在 {args.duration} 小时后自动关闭。")
+
+    try:
+        while True:
+            status = client.get_live_broadcast_status(broadcast_id)
+            print(f"Broadcast status: {status}")
+            if status != 'live':
+                print(f"直播已不再进行 (当前状态: {status})。正在退出。")
+                streamer.stop_streaming()
+                break
+            print("Stream is live. Press Ctrl+C to stop.")
+            time.sleep(15) # Check status less frequently
+    except KeyboardInterrupt:
+        print("\n正在停止推流...")
+        streamer.stop_streaming()
+        print("正在关闭直播间...")
+        try:
+            client.close_live_broadcast(broadcast_id)
+            print("直播已结束。")
+        except Exception as e:
+            print(f"关闭直播间时出错: {e}")
+            print("可能是因为直播已通过其他方式结束。")
+
+if __name__ == "__main__":
+    main()
