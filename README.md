@@ -1,87 +1,117 @@
-# YouTube Live Streamer
+# YouTube Live Streaming Tool
 
-This project provides a Python module to create and stream to a YouTube live broadcast using the YouTube Data API and FFmpeg.
+This tool automates the process of streaming a local video file to YouTube Live. It creates a live broadcast, streams the video, and can automatically stop the broadcast after a configured duration.
 
-## 功能
+## Features
 
-- **创建直播**: 自动创建 YouTube 直播活动。
-- **视频推流**: 将本地视频文件推送到指定的直播流。
-- **状态监控**: 实时监控直播状态。
-- **自动结束**: 在推流结束后自动结束直播。
-- **可配置性**: 支持通过命令行参数配置直播标题、描述和隐私状态。
-- **持久化认证**: 一次认证后，凭据将被保存，无需重复认证。
-- **默认为“非儿童内容”**: 所有创建的直播将自动标记为“不适合儿童”。
-- **快速开播**: 创建直播后，将立即开始推流，无需手动干预。
-- **视频循环播放**: 自动循环播放指定的视频文件，实现 24/7 直播。
-- **网络断线自动重连**: 在网络波动或中断时，推流将自动尝试重新连接。
-- **默认1080p/30fps**: 直播将以 1080p 分辨率和 30fps 帧率进行。
+- **Automated Broadcast Creation**: Automatically creates a new live broadcast on YouTube.
+- **Push-to-Start**: The broadcast automatically starts when the stream begins.
+- **Push-to-Stop**: The broadcast automatically stops when the stream ends.
+- **Configurable Duration**: Set a maximum duration for the live stream, after which it will automatically shut down.
+- **Multi-Account Support**: Easily manage credentials for different YouTube accounts using separate directories.
+- **Robust Error Handling**: Provides clear instructions for common authentication and configuration issues.
 
-## Installation
+## Deployment on Ubuntu
 
-1.  Clone the repository:
-    ```
-    git clone https://github.com/your-username/ytb-stream.git
-    cd ytb-stream
-    ```
+This guide will walk you through deploying and running the YouTube Live Streaming Tool on an Ubuntu server.
 
-2.  Install the required dependencies:
-    ```
-    # pip install -r requirements.txt
-    pip install -r requirements.txt --index-url https://pypi.org/simple
-    ```
+### 1. System Preparation
 
-3.  Install FFmpeg. Make sure it is in your system's PATH.
-
-## Getting YouTube API Credentials
-
-1.  Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2.  Create a new project.
-3.  Enable the **YouTube Data API v3**.
-4.  Create an **OAuth 2.0 Client ID** for a **Desktop application**.
-5.  Download the JSON credentials file and save it as `client_secret.json` in the root of the project.
-
-The first time you run the script, you will be prompted to authorize the application in your browser. A `token.json` file will be created to store your credentials for future use.
-
-## Usage
-
-Run the `main.py` script with the required arguments:
-
-```
-python main.py --credentials_file client_secret.json --video_file /path/to/your/video.mp4 --title "My Awesome Stream" --description "This is a test stream."
-
-### 使用代理
-
-如果您的网络环境需要代理才能访问 Google 服务，您可以使用 `--proxy` 参数指定代理服务器：
+First, update your package list and install essential packages: `python3`, `pip`, and `ffmpeg`.
 
 ```bash
-python main.py --credentials_file client_secret.json --video_file /path/to/your/video.mp4 --proxy http://your-proxy-server:port
+sudo apt update
+sudo apt install python3 python3-pip ffmpeg -y
 ```
 
-### 关闭直播
+### 2. Project Setup
 
-如果你需要手动关闭一个直播，可以使用 `test_close_broadcast.py` 脚本：
+Clone the project repository or copy the files to your Ubuntu server.
 
 ```bash
-python test_close_broadcast.py --credentials_file client_secret.json --broadcast_id YOUR_BROADCAST_ID
+git clone <your-repository-url>
+cd ytb-stream
 ```
 
-### 获取所有直播
+### 3. Install Python Dependencies
 
-你可以使用 `get_broadcast_ids.py` 脚本来获取所有直播的列表及其状态：
+Install the necessary Python libraries using the `requirements.txt` file.
 
 ```bash
-python get_broadcast_ids.py --credentials_file client_secret.json
+pip3 install -r requirements.txt
 ```
 
-默认情况下，所有通过此工具创建的直播都将被标记为 **不面向儿童**。
+### 4. Google Cloud Authentication
+
+To stream to YouTube, you need to authenticate using OAuth 2.0 credentials.
+
+1.  **Create a Google Cloud Project**: If you don't have one, create a project at the [Google Cloud Console](https://console.cloud.google.com/).
+2.  **Enable the YouTube Data API**: In your project, go to "APIs & Services" > "Library" and enable the "YouTube Data API v3".
+3.  **Configure the OAuth Consent Screen**:
+    *   Go to "APIs & Services" > "OAuth consent screen".
+    *   Choose **External** and create the consent screen.
+    *   Fill in the required app information.
+    *   **Crucially**, if your app is in the "Testing" publishing status, you must add your Google account's email address under "Test users".
+4.  **Create OAuth 2.0 Credentials**:
+    *   Go to "APIs & Services" > "Credentials".
+    *   Click "+ CREATE CREDENTIALS" and select "OAuth client ID".
+    *   For the application type, select **Desktop app**.
+    *   Download the JSON file. It will be named something like `client_secret_xxxxxxxx.json`.
+
+### 5. Configure Credentials in the Project
+
+1.  Create a directory to hold your authentication files. This allows you to manage multiple accounts easily.
+
+    ```bash
+    mkdir the_robot_guy
+    ```
+
+2.  Rename the downloaded JSON file to `client_secret.json` and move it into the directory you just created.
+
+    ```bash
+    mv /path/to/your/downloaded/client_secret.json the_robot_guy/client_secret.json
+    ```
+
+### 6. Prepare the Video File
+
+Place the video file you want to stream (e.g., `stream.mp4`) in the project's root directory.
+
+### 7. Run the Application
+
+Execute the `main.py` script with the appropriate arguments.
+
+```bash
+python3 main.py \
+  --auth_dir="the_robot_guy" \
+  --video_file="stream.mp4" \
+  --title="My Awesome Live Stream" \
+  --description="Check out this cool stream!" \
+  --privacy_status="public" \
+  --duration=10800
 ```
 
-The first time you run the script, you will be prompted to authorize the application in your browser. A `token.json` file will be created to store your credentials for future use.
+**Argument Explanations:**
 
-### Command-Line Arguments
+*   `--auth_dir`: The directory containing your `client_secret.json`.
+*   `--video_file`: The path to the video you want to stream.
+*   `--title`: The title of your YouTube live broadcast.
+*   `--description`: The description for the broadcast.
+*   `--privacy_status`: The privacy of the stream (`public`, `private`, or `unlisted`).
+*   `--duration`: The time in **seconds** after which the stream will automatically stop. Set to `0` to disable auto-shutdown. (Default: 10800 seconds = 3 hours).
 
-*   `--credentials_file`: (Required) Path to the credentials file (e.g., `client_secret.json`).
-*   `--video_file`: (Required) Path to the video file to stream.
-*   `--title`: Title of the live stream (default: "My Live Stream").
-*   `--description`: Description of the live stream (default: "").
-*   `--privacy_status`: Privacy status of the live stream (public, private, or unlisted) (default: "private").
+#### First-Time Authorization
+
+The first time you run the script for a new account, you will be prompted to authorize the application:
+
+1.  A URL will be printed in the console.
+2.  Copy this URL and paste it into a web browser.
+3.  Log in with the Google account you added as a "Test user".
+4.  Grant the application permission to access your YouTube account.
+
+After successful authorization, a `token.json` file will be created in your `--auth_dir` directory. Subsequent runs will use this token and will not require manual authorization.
+
+### 8. (Optional) Running as a Background Service
+
+For long-running streams, it's best to run the script as a background service using a process manager like `systemd` or `supervisor`. This ensures the stream continues even if you close your terminal.
+
+This completes the deployment and execution guide for running the tool on Ubuntu.

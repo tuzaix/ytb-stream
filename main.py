@@ -3,18 +3,25 @@ import time
 import threading
 import ctypes
 import os
+import platform
+import signal
 from youtube.client import YouTubeClient
 from streamer import Streamer
 
-def shutdown_after_duration(duration, duration_hours):
+def shutdown_after_duration(duration_seconds, duration_hours):
     """
     Waits for a given duration and then sends a Ctrl+C signal to the process
-    to trigger a graceful shutdown.
+    to trigger a graceful shutdown. This function is cross-platform.
     """
-    time.sleep(duration)
+    time.sleep(duration_seconds)
     print(f"\n{duration_hours}-hour limit reached. Initiating shutdown...")
-    # On Windows, this sends a Ctrl+C event to the process console.
-    ctypes.windll.kernel32.GenerateConsoleCtrlEvent(0, 0)
+
+    if platform.system() == "Windows":
+        # On Windows, this sends a Ctrl+C event to the process console.
+        ctypes.windll.kernel32.GenerateConsoleCtrlEvent(0, 0)
+    else:
+        # On Linux/macOS, send a SIGINT signal (equivalent to Ctrl+C).
+        os.kill(os.getpid(), signal.SIGINT)
 
 def main():
     parser = argparse.ArgumentParser(description="YouTube Live Streamer")
@@ -110,7 +117,7 @@ def main():
 
     if args.duration > 0:
         # Start the shutdown timer thread
-        duration_limit_seconds = args.duration * 60 * 60
+        duration_limit_seconds = args.duration * 3600  # Convert hours to seconds
         monitor_thread = threading.Thread(
             target=shutdown_after_duration,
             args=(duration_limit_seconds, args.duration),
