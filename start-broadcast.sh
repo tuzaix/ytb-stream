@@ -20,13 +20,14 @@ THETITLE=$2    # 直播标题
 TIMESCOPE=$3  # 时间点：7:00~9:30(2.5h), 10:00~13:30(3.5h), 22:00~次1:30(3.5h), 次2:00~次3:30(2.5h)
 DURATION=$4    # 指定直播时长，默认是2.5h
 RUN_DATE=$5    # 指定天的素材: 2025-10-20
+DESCRIPTION=$6        # 直播说明
 
 
 # 必选参数
 if [ -z "$CATEGORY" ] || [ -z "$THETITLE" ] || [ -z "$TIMESCOPE" ]; then
     echo "错误：缺少必要参数."
-    echo "用法：$0 <类别> <标题> <直播时段:2/7/10/22> [直播时长：默认是2.5h] [直播时间:2025-10-20]"
-    echo "示例：$0 cook "直播标题" 2 2.5 2025-10-20"
+    echo "用法：$0 <类别> <标题> <直播时段:2/7/10/22> [直播时长：默认是2.5h] [直播时间:2025-10-20] [直播说明]"
+    echo "示例：$0 cook "直播标题" 2 2.5 2025-10-20 直播说明"
     exit 1
 fi
 
@@ -70,8 +71,8 @@ for file in "$VIDEO_DIR"/*.mp4 "$VIDEO_DIR"/*.ts; do
 	    echo "*****************************************************"
 	    echo ">>>> 正在推流文件: $file"
 	    echo "*****************************************************"
-        echo --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --duration "$the_duration" --privacy_status public
-		python $bin/main.py --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --duration "$the_duration" --privacy_status public > $log_file 2>&1 
+        echo --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --description "$DESCRIPTION" --duration "$the_duration" --privacy_status public
+		python $bin/main.py --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --description "$DESCRIPTION" --duration "$the_duration" --privacy_status public > $log_file 2>&1 
 	    break
 	fi
 done
