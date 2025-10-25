@@ -32,11 +32,11 @@ fi
 # 使用 find -print0 和 while read -d '' 安全地处理包含空格的文件名
 # 查找根目录下（-maxdepth 1）所有 .mp4 和 .ts 文件
 VIDEO_FILES=()
-find "$VIDEO_ROOT_DIR" -maxdepth 1 -type f \( -name "*.mp4" -o -name "*.ts" \) -print0 | 
+
 while IFS= read -r -d '' filepath; do
     # 将文件路径安全地添加到数组中
     VIDEO_FILES+=("$filepath")
-done
+done < <(find "$VIDEO_ROOT_DIR" -maxdepth 1 -type f \( -name "*.mp4" -o -name "*.ts" \) -print0)
 
 if [ ${#VIDEO_FILES[@]} -eq 0 ]; then
     echo "未在目录 '$VIDEO_ROOT_DIR' 下找到 .mp4 或 .ts 文件。"
