@@ -110,9 +110,9 @@ def main():
     streamer.start_streaming()
 
     # Wait for the stream to be in the 'live' state
-    print("Waiting for YouTube to start the stream automatically (up to 2 minutes)...")
+    print("Waiting for YouTube to start the stream automatically (up to 5 minutes)...")
     start_time = time.time()
-    while time.time() - start_time < 120:
+    while time.time() - start_time < 300:
         status = client.get_live_broadcast_status(broadcast_id)
         print(f"Current broadcast status: {status}")
         if status == 'live':
