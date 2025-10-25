@@ -72,7 +72,7 @@ for file in "$VIDEO_DIR"/*.mp4 "$VIDEO_DIR"/*.ts; do
 	    echo ">>>> 正在推流文件: $file"
 	    echo "*****************************************************"
         echo --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --description "$DESCRIPTION" --duration "$the_duration" --privacy_status public
-		python $bin/main.py --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --description "$DESCRIPTION" --duration "$the_duration" --privacy_status public > $log_file 2>&1 
+		python $bin/upload_stream.py --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --description "$DESCRIPTION" --duration "$the_duration" --privacy_status public > $log_file 2>&1 
 	    break
 	fi
 done
