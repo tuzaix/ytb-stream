@@ -6,6 +6,7 @@ import os
 import platform
 import signal
 from youtube.client import YouTubeClient
+from youtube.thumbnail import generate_stream_thumbnail
 from streamer import Streamer
 
 def shutdown_after_duration(duration_seconds, duration_hours):
@@ -85,6 +86,21 @@ def main():
         return
 
     broadcast_id = broadcast["id"]
+
+    # Generate and set the thumbnail
+    print("Generating thumbnail for the stream...")
+    thumbnail_path = generate_stream_thumbnail(args.video_file)
+    if thumbnail_path:
+        try:
+            client.set_thumbnail(broadcast_id, thumbnail_path)
+            print(f"Successfully set thumbnail: {thumbnail_path}")
+            os.remove(thumbnail_path) # Clean up the generated thumbnail
+            print(f"Removed generated thumbnail: {thumbnail_path}")
+        except Exception as e:
+            print(f"Failed to set thumbnail: {e}")
+    else:
+        print("Thumbnail generation failed or was skipped.")
+
     stream_url = f"{stream['cdn']['ingestionInfo']['ingestionAddress']}/{stream['cdn']['ingestionInfo']['streamName']}"
 
     time.sleep(3)  # Add a 3-second delay before starting the stream

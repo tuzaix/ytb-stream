@@ -121,3 +121,46 @@ def generate_thumbnail(video_path):
     os.rmdir(temp_dir)
 
     return output_thumbnail_path
+
+def generate_stream_thumbnail(video_path):
+    """
+    Generates a thumbnail for a live stream based on video orientation.
+
+    - For vertical videos (height > width), it stitches 3 random frames.
+    - For horizontal videos (width >= height), it extracts a single random frame.
+
+    Args:
+        video_path (str): The path to the video file.
+
+    Returns:
+        str: The path to the generated thumbnail, or None if generation fails.
+    """
+    duration = get_video_duration(video_path)
+    width, height = get_video_resolution(video_path)
+
+    if duration is None or width is None or height is None:
+        return None
+
+    output_thumbnail_path = os.path.join(os.path.dirname(video_path), 'generated_stream_thumbnail.jpg')
+
+    if height > width:  # Vertical video
+        print("Vertical video detected. Generating a 3-frame stitched thumbnail.")
+        return generate_thumbnail(video_path) # Reuse existing logic for vertical videos
+    else:  # Horizontal or square video
+        print("Horizontal/square video detected. Generating a single-frame thumbnail.")
+        random_time = random.uniform(duration * 0.1, duration * 0.9)
+        command = [
+            'ffmpeg',
+            '-ss', str(random_time),
+            '-i', video_path,
+            '-vframes', '1',
+            '-q:v', '2',
+            output_thumbnail_path,
+            '-y'
+        ]
+        try:
+            subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8')
+            return output_thumbnail_path
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"Error extracting single frame: {e.stderr if isinstance(e, subprocess.CalledProcessError) else e}")
+            return None
