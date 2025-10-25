@@ -41,7 +41,7 @@ done < <(find "$video_base_dir" -maxdepth 1 -type d -print0)
 
 echo "video_dirs: ${OPTS_VIDEO_DIRS[@]}"
 
-python $bin/../upload_video.py --auth_dir $auth_base_dir \
+python $bin/upload_video.py --auth_dir $auth_base_dir \
                                 --video_dirs "${OPTS_VIDEO_DIRS[@]}" \
                                 --title "$TITLE" \
                                 --description "$DESCRIPTION" \
