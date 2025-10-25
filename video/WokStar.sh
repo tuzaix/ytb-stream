@@ -49,6 +49,12 @@ for sub_dir in $sub_dirs
 do
     # 判断不是以_published未结尾的文件夹
     if [[ $sub_dir != *_published ]]; then
+        # 判断改目录下是否有视频文件
+        video_files=$(ls $video_base_dir/$sub_dir/*.mp4)
+        if [ -z "$video_files" ]; then
+            echo "警告：目录 $video_base_dir/$sub_dir 下没有视频文件，将被跳过."
+            continue
+        fi
         OPTS_VIDEO_DIRS+="\"$video_base_dir/$sub_dir\" "
     fi
 done
