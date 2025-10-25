@@ -60,7 +60,7 @@ the_auth_dir=$base_auth_dir/$CATEGORY
 the_title=$THETITLE
 #the_duration
 #
-log_file=$LOG_DIR/broadcast-$CATEGORY-$thedate-$TIMESCOPE.log
+log_file=$LOG_DIR/broadcast-$CATEGORY-$thedate-$TIMESCOPE.$(date +%Y%m%d%H%M%S).log
 
 VIDEO_DIR=$base_stream_dir/$CATEGORY/$thedate-$TIMESCOPE
 
