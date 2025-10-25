@@ -1,10 +1,13 @@
 import os
+import time
 import google.auth.transport.requests
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 from datetime import datetime, timedelta
 import pytz
+from .thumbnail import generate_thumbnail
 
 class YouTubeClient:
     def __init__(self, credentials_file, token_file, proxy=None):
@@ -192,3 +195,129 @@ class YouTubeClient:
         )
         response = request.execute()
         return response.get("items", [])
+
+    def upload_video(self, file_path, title, description, privacy_status, tags=None, thumbnail_path=None, publish_after_processing=False):
+        """
+        Uploads a video to YouTube.
+
+        Args:
+            file_path (str): Path to the video file.
+            title (str): The title of the video.
+            description (str): The description of the video.
+            privacy_status (str): The privacy status of the video (e.g., "public", "private", "unlisted").
+            tags (list, optional): A list of tags for the video. Defaults to None.
+            thumbnail_path (str, optional): Path to the thumbnail image. Defaults to None.
+            publish_after_processing (bool): If True, waits for the video to be processed and then sets its privacy to public.
+        """
+        generated_thumbnail = False
+        if not thumbnail_path:
+            print("No thumbnail provided, attempting to generate one...")
+            thumbnail_path = generate_thumbnail(file_path)
+            if thumbnail_path:
+                generated_thumbnail = True
+                print("Thumbnail generated successfully.")
+            else:
+                print("Thumbnail generation skipped. Proceeding without one.")
+
+        body = {
+            "snippet": {
+                "title": title,
+                "description": description,
+                "tags": tags or [],
+                "categoryId": "22"
+            },
+            "status": {
+                "privacyStatus": privacy_status,
+                "selfDeclaredMadeForKids": False
+            }
+        }
+
+        media = MediaFileUpload(file_path, chunksize=-1, resumable=True)
+
+        request = self.youtube.videos().insert(
+            part=",".join(body.keys()),
+            body=body,
+            media_body=media
+        )
+
+        response = None
+        while response is None:
+            status, response = request.next_chunk()
+            if status:
+                print(f"Uploaded {int(status.progress() * 100)}%")
+
+        video_id = response.get('id')
+        print(f"Upload successful! Video ID: {video_id}")
+
+        if thumbnail_path:
+            self.set_thumbnail(video_id, thumbnail_path)
+            if generated_thumbnail and os.path.exists(thumbnail_path):
+                os.remove(thumbnail_path)
+                print(f"Removed generated thumbnail: {thumbnail_path}")
+
+        if publish_after_processing:
+            published = self.wait_for_processing_and_publish(video_id)
+            if published:
+                return response, True
+
+        return response, False
+
+    def wait_for_processing_and_publish(self, video_id):
+        """Waits for video processing and then publishes it."""
+        print("Waiting for video processing to complete...")
+        while True:
+            status = self.get_video_processing_status(video_id)
+            if status == 'succeeded':
+                print("Video processing succeeded.")
+                self.update_video_privacy(video_id, 'public')
+                print("Video has been published.")
+                return True
+            elif status in ['failed', 'terminated']:
+                print(f"Video processing failed with status: {status}")
+                return False
+            else:
+                print(f"Current processing status: {status}. Waiting...")
+                time.sleep(30) # Wait for 30 seconds before checking again
+
+    def get_video_processing_status(self, video_id):
+        """Gets the processing status of a video."""
+        request = self.youtube.videos().list(
+            part="processingDetails",
+            id=video_id
+        )
+        response = request.execute()
+        if not response["items"]:
+            return None
+        return response["items"][0]["processingDetails"]["processingStatus"]
+
+    def update_video_privacy(self, video_id, privacy_status):
+        """Updates the privacy status of a video."""
+        body = {
+            "id": video_id,
+            "status": {
+                "privacyStatus": privacy_status
+            }
+        }
+        request = self.youtube.videos().update(
+            part="status",
+            body=body
+        )
+        request.execute()
+
+    def set_thumbnail(self, video_id, thumbnail_path):
+        """
+        Sets a custom thumbnail for a video.
+
+        Args:
+            video_id (str): The ID of the video.
+            thumbnail_path (str): Path to the thumbnail image.
+        """
+        media = MediaFileUpload(thumbnail_path)
+
+        request = self.youtube.thumbnails().set(
+            videoId=video_id,
+            media_body=media
+        )
+
+        request.execute()
+        print("Thumbnail set successfully.")
