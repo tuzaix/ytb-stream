@@ -19,7 +19,22 @@ def main():
 
     # Randomly select a directory from the provided list
     print(f"Available video directories: {args.video_dirs}")
-    selected_dir = random.choice(args.video_dirs)
+
+    # 先检查目录是否存在，并且目录下是否有视频文件，筛选出有视频文件的目录
+    valid_dirs = []
+    for dir in args.video_dirs:
+        if os.path.exists(dir) and os.path.isdir(dir):
+            video_files = [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
+            if video_files:
+                valid_dirs.append(dir)
+        else:
+            print(f"Warning: Directory {dir} does not exist or is not a directory.")
+
+    if not valid_dirs:
+        print("No valid video directories with video files found.")
+        return
+
+    selected_dir = random.choice(valid_dirs)
     print(f"Selected directory: {selected_dir}")
 
     video_files = [f for f in os.listdir(selected_dir) if os.path.isfile(os.path.join(selected_dir, f))]
