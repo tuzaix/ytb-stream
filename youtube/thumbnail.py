@@ -12,7 +12,7 @@ def get_video_duration(video_path):
         video_path
     ]
     try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True, encoding='utf-8')
+        result = subprocess.run(command, capture_output=True, text=True, check=True, encoding='utf-8', errors='ignore')
         return float(result.stdout)
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"Error getting video duration: {e}")
@@ -29,7 +29,7 @@ def get_video_resolution(video_path):
         video_path
     ]
     try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True, encoding='utf-8')
+        result = subprocess.run(command, capture_output=True, text=True, check=True, encoding='utf-8', errors='ignore')
         width, height = map(int, result.stdout.strip().split('x'))
         return width, height
     except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
@@ -82,7 +82,7 @@ def generate_thumbnail(video_path):
             '-y'
         ]
         try:
-            subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8')
+            subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8', errors='ignore')
             frame_paths.append(frame_path)
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Error extracting frame {i+1}: {e.stderr if isinstance(e, subprocess.CalledProcessError) else e}")
@@ -111,7 +111,7 @@ def generate_thumbnail(video_path):
         '-y'
     ]
     try:
-        subprocess.run(stitch_command, check=True, capture_output=True, text=True, encoding='utf-8')
+        subprocess.run(stitch_command, check=True, capture_output=True, text=True, encoding='utf-8', errors='ignore')
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"Error stitching frames: {e.stderr if isinstance(e, subprocess.CalledProcessError) else e}")
         output_thumbnail_path = None
@@ -159,7 +159,7 @@ def generate_stream_thumbnail(video_path):
             '-y'
         ]
         try:
-            subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8')
+            subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8', errors='ignore')
             return output_thumbnail_path
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Error extracting single frame: {e.stderr if isinstance(e, subprocess.CalledProcessError) else e}")
