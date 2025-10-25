@@ -15,7 +15,7 @@ duration=$2
 thedate=$3
 
 
-bash $bin/../start-broadcast.sh "luwei" "$title" "$timescope" "$duration" "$thedate" "$description"
+bash $bin/../start-broadcast.sh "WokStar" "$title" "$timescope" "$duration" "$thedate" "$description"
 
 
 
