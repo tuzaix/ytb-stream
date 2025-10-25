@@ -2,7 +2,7 @@
 bin=`dirname "$0"`
 bin=`cd $bin; pwd`
 
-source $bin/../.venv/bin/activate
+source $bin/.venv/bin/activate
 
 CHOICE=$1
 TITLE=$2
