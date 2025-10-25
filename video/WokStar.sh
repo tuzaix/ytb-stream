@@ -34,12 +34,15 @@ video_base_dir=$BASE_DIR/video/$CHOICE
 
 
 sub_dirs=$(ls $video_base_dir)
+OPTS_VIDEO_DIRS=""
 
 for sub_dir in $sub_dirs
 do
     # 判断不是以_published未结尾的文件夹
-    if [[ $sub_dir != "*_published" ]]; then
-        echo $sub_dir
+    if [[ $sub_dir != *_published ]]; then
+        OPTS_VIDEO_DIRS+="\"$video_base_dir/$sub_dir\" "
     fi
 done
+
+echo "$OPTS_VIDEO_DIRS"
 
