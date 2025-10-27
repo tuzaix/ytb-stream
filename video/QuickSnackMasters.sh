@@ -2,7 +2,7 @@
 bin=`dirname "$0"`
 bin=`cd $bin; pwd`
 
-TITLE="#cookingshorts #chinesefood #delicious #shorts #viral"
-DESCRIPTION="#cookingshorts #chinesefood #delicious #shorts #viral"
+TITLE="#cs #csgo #wargames #shorts #viral"
+DESCRIPTION="#cs #csgo #wargames #shorts #viral"
 
 bash $bin/../start-video.sh "QuickSnackMasters" "$TITLE" "$DESCRIPTION"
