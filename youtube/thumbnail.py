@@ -1,6 +1,7 @@
 import subprocess
 import random
 import os
+import uuid
 
 def get_video_duration(video_path):
     """Gets the duration of a video in seconds using ffprobe."""
@@ -64,13 +65,16 @@ def generate_thumbnail(video_path):
         print("Video duration is less than 180 seconds, skipping thumbnail generation.")
         return None
 
-    temp_dir = 'temp_frames'
+    # Use a unique temp directory per run to avoid concurrency conflicts
+    temp_dir = f"temp_frames_{uuid.uuid4().hex}"
     os.makedirs(temp_dir, exist_ok=True)
 
     frame_paths = []
+    run_id = uuid.uuid4().hex  # Unique suffix for frame file names
     for i in range(3):
         random_time = random.uniform(duration * 0.1, duration * 0.9)
-        frame_path = os.path.join(temp_dir, f'frame_{i+1}.jpg')
+        # Make frame file names unique to avoid conflicts during concurrent runs
+        frame_path = os.path.join(temp_dir, f'frame_{i+1}_{run_id}.jpg')
 
         command = [
             'ffmpeg',
