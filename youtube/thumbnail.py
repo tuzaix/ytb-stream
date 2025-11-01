@@ -453,24 +453,54 @@ def generate_thumbnail(video_path, caption: str = None, color: str = 'yellow'):
         os.path.dirname(video_path), f"generated_thumbnail_{uuid.uuid4().hex[:8]}.jpg"
     )
     
-    stitch_command = [
-        'ffmpeg',
-        '-i', frame_paths[0],
-        '-i', frame_paths[1],
-        '-i', frame_paths[2],
-        '-filter_complex', 'hstack=inputs=3',
-        output_thumbnail_path,
-        '-y'
-    ]
+    # Stitch three frames horizontally with a 5px soft crossfade between images to reduce hard seams
     try:
-        subprocess.run(stitch_command, check=True, capture_output=True, text=True, encoding='utf-8', errors='ignore')
+        imgs = [Image.open(fp).convert('RGBA') for fp in frame_paths]
+        target_h = min(img.height for img in imgs)
+        def _resize_to_h(img, h):
+            if img.height == h:
+                return img
+            new_w = max(1, int(img.width * h / img.height))
+            return img.resize((new_w, h), Image.LANCZOS)
+        imgs = [_resize_to_h(img, target_h) for img in imgs]
+
+        w1, w2, w3 = (imgs[0].width, imgs[1].width, imgs[2].width)
+        overlap = 150
+        # Ensure overlap does not exceed any image width
+        overlap = max(1, min(overlap, w1, w2, w3))
+        new_w = w1 + w2 + w3 - 2 * overlap
+        base = Image.new('RGBA', (new_w, target_h), (0, 0, 0, 0))
+        # Paste first image fully
+        base.paste(imgs[0], (0, 0))
+
+        # Prepare alpha mask with left 5px gradient for second image
+        alpha2 = np.ones((target_h, w2), dtype=np.uint8) * 255
+        for j in range(overlap):
+            alpha_val = int(255 * (j / float(overlap)))
+            alpha2[:, j] = alpha_val
+        mask2 = Image.fromarray(alpha2, mode='L')
+        x2 = w1 - overlap
+        base.paste(imgs[1], (x2, 0), mask2)
+
+        # Prepare alpha mask with left 5px gradient for third image
+        alpha3 = np.ones((target_h, w3), dtype=np.uint8) * 255
+        for j in range(overlap):
+            alpha_val = int(255 * (j / float(overlap)))
+            alpha3[:, j] = alpha_val
+        mask3 = Image.fromarray(alpha3, mode='L')
+        x3 = x2 + w2 - overlap
+        base.paste(imgs[2], (x3, 0), mask3)
+
+        # Save stitched image
+        base.convert('RGB').save(output_thumbnail_path, quality=95)
+
         # If a caption is provided, overlay it on the stitched thumbnail
         if caption:
             result = add_caption_to_image(output_thumbnail_path, caption, color=color)
             if result is None:
                 output_thumbnail_path = None
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"Error stitching frames: {e.stderr if isinstance(e, subprocess.CalledProcessError) else e}")
+    except Exception as e:
+        print(f"Error stitching frames (PIL): {e}")
         output_thumbnail_path = None
 
     for fp in frame_paths:
