@@ -2,5 +2,6 @@ google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
 pytz
-moviepy
+moviepy==1.0.3
 Pillow
+numpy==2.2.6
