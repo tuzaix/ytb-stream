@@ -117,8 +117,10 @@ def main():
             )
         else:
             thumbnail_path = None
-
+    
     print(f"Thumbnail path: {thumbnail_path}")
+
+    return 
 
     _, published = client.upload_video(
         file_path=video_to_upload,
@@ -136,6 +138,10 @@ def main():
             os.makedirs(published_dir)
         shutil.move(video_to_upload, os.path.join(published_dir, os.path.basename(video_to_upload)))
         print(f"Moved {video_to_upload} to {published_dir}")
+    if thumbnail_path:
+        # 删除生成的缩略图
+        os.remove(thumbnail_path)
+        print(f"Deleted generated thumbnail: {thumbnail_path}")
 
 if __name__ == "__main__":
     main()

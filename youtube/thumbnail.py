@@ -5,21 +5,10 @@ import uuid
 import numpy as np
 import moviepy.editor as mp
 from PIL import Image, ImageDraw, ImageFont
+import os 
 
-def _escape_drawtext_text(text: str) -> str:
-    """Escapes text for ffmpeg drawtext filter.
-
-    - Replaces newlines with literal \n for multi-line rendering
-    - Escapes characters that conflict with drawtext option delimiters
-    """
-    if text is None:
-        return ""
-    # ffmpeg drawtext uses ':' as option delimiter and single quotes for text
-    escaped = text.replace('\\', r'\\')
-    escaped = escaped.replace(':', r'\:')
-    escaped = escaped.replace("'", r"\'")
-    escaped = escaped.replace('\n', r'\\n')  # normalize any existing newline
-    return escaped
+# 字体目录
+FONTS_RELATIVE_PATH = os.path.join(os.path.dirname(__file__), "..", "fonts")
 
 def _find_font_file() -> str:
     """Finds an available (preferably bold) font file on Windows supporting Latin and CJK.
@@ -28,83 +17,20 @@ def _find_font_file() -> str:
     Returns empty string if none found, letting PIL pick a default.
     """
     candidates = [
-        r"C:\\Windows\\Fonts\\msyhbd.ttc",  # Microsoft YaHei Bold
-        r"C:\\Windows\\Fonts\\msyhbd.ttf",
-        r"C:\\Windows\\Fonts\\simhei.ttf",   # SimHei (heavy weight)
-        r"C:\\Windows\\Fonts\\msyh.ttc",    # Microsoft YaHei
-        r"C:\\Windows\\Fonts\\msyh.ttf",
-        r"C:\\Windows\\Fonts\\arialbd.ttf", # Arial Bold
-        r"C:\\Windows\\Fonts\\arial.ttf",   # Arial
+        # "SourceHanSansCN-Bold.otf",
+        # "SourceHanSansCN-ExtraLight.otf",
+        "SourceHanSansCN-Heavy.otf",
+        # "SourceHanSansCN-Light.otf",
+        # "SourceHanSansCN-Medium.otf",
+        # "SourceHanSansCN-Normal.otf",
+        # "SourceHanSansCN-Regular.otf",
     ]
-    for path in candidates:
+    for font in candidates:
+        path = os.path.join(FONTS_RELATIVE_PATH, font)
+        print(f"Checking font: {path}")
         if os.path.exists(path):
             return path
     return ""
-
-def _wrap_caption(text: str, max_chars_per_line: int) -> str:
-    """Wraps caption text to multiple lines based on a max characters per line.
-
-    - Uses word-based wrapping when spaces exist
-    - Falls back to character-chunk wrapping for long CJK sequences without spaces
-    """
-    if not text:
-        return ""
-    text = text.strip()
-    if max_chars_per_line <= 1:
-        return text
-
-    words = text.split()
-    lines = []
-    current = ""
-    if len(words) > 1:
-        for w in words:
-            if not current:
-                current = w
-            elif len(current) + 1 + len(w) <= max_chars_per_line:
-                current += " " + w
-            else:
-                lines.append(current)
-                current = w
-        if current:
-            lines.append(current)
-    else:
-        # No spaces, likely CJK string; chunk by character count
-        s = text
-        for i in range(0, len(s), max_chars_per_line):
-            lines.append(s[i:i + max_chars_per_line])
-
-    return "\n".join(lines)
-
-def _compute_fontsize(image_w: int, image_h: int, longest_line_len: int, num_lines: int) -> int:
-    """Computes font size so caption block looks balanced and prominent.
-
-    Heuristics (optimized for larger text with tighter padding):
-    - Base size ~10% of image height for prominence
-    - Width constraint: longest line ~90% of safe width (glyph width ~0.6*fontsize)
-    - Height constraint: total lines occupy up to ~80% of image height,
-      with comfortable line height ~1.10x and line spacing ~0.10x fontsize.
-    Returns the final fontsize clamped to reasonable bounds.
-    """
-    base = max(24, int(image_h * 0.10))
-    approx_glyph_ratio = 0.6
-    # Available area after padding: left/right 10% -> 80% width; top/bottom 10% -> 80% height
-    target_width_ratio = 0.80
-    target_height_ratio = 0.80
-
-    width_font = int((image_w * target_width_ratio) / (max(1, longest_line_len) * approx_glyph_ratio))
-    # Adjust spacing for ~1.10x line height: extra spacing ~0.10 * fontsize
-    line_height_ratio = 1.10
-    line_spacing_ratio = 0.10
-    line_spacing = int(base * line_spacing_ratio)
-    height_font = int(
-        ((image_h * target_height_ratio) - max(0, num_lines - 1) * line_spacing)
-        / (max(1, num_lines) * line_height_ratio)
-    )
-
-    # Clamp to sane range and pick the most restrictive
-    upper_cap = int(image_h * 0.18)
-    final = max(32, min(base, width_font, height_font, upper_cap))
-    return final
 
 def add_caption_to_image(image_path: str, caption: str, color: str = 'yellow') -> str:
     """
@@ -112,8 +38,8 @@ def add_caption_to_image(image_path: str, caption: str, color: str = 'yellow') -
 
     Visual rules:
     - Keep original case for text, configurable fill color with black stroke/shadow.
-    - Safe area: 10% left/right padding, 10% top/bottom padding; text centered.
-    - Adaptive font size to fit ~80% width and ~80% height of image.
+    - Safe area: 15% left/right padding, 15% top/bottom padding; text centered.
+    - Fixed font size at 130px; wrapping derived from safe width and glyph width.
     - Line spacing ~1.1x (spacing = 0.10 * fontsize).
     - Letter spacing: default for English (ASCII-only) lines; slightly increased for CJK lines.
 
@@ -162,23 +88,13 @@ def add_caption_to_image(image_path: str, caption: str, color: str = 'yellow') -
     # For now, we'll keep original case for all text to maintain natural readability
     caption_up = caption
 
-    # Derive max chars per line from safe width (80%) and estimated glyph width,
-    # and intentionally reduce per-line character count to enlarge font size.
-    base_for_wrap = max(24, int(h * 0.10))
-    available_width = w * 0.80
-    estimated_glyph_width = base_for_wrap * 0.6
-    # Reduce allowable chars per line by ~15% to encourage wrapping
-    derived_chars = int(available_width / max(1, estimated_glyph_width))
-    max_chars_per_line = max(5, int(derived_chars * 0.85))
-    wrapped = _wrap_caption(caption_up, max_chars_per_line)
-    lines = wrapped.split('\n') if wrapped else []
-    longest = max((len(line) for line in lines), default=len(wrapped))
-    num_lines = max(1, len(lines))
-    fontsize = _compute_fontsize(w, h, longest, num_lines)
-    spacing = int(max(0, fontsize * 0.10))
+    # Fixed font size and wrapping derived from safe area and glyph width
+    fontsize = 160
+    spacing = int(max(0, fontsize * 0.50))  # 1.5x line height spacing
 
     # Choose font
     font_path = _find_font_file()
+    print(f"Using font: {font_path}")
     try:
         font = ImageFont.truetype(font_path, fontsize) if font_path else ImageFont.load_default()
     except Exception:
@@ -189,10 +105,127 @@ def add_caption_to_image(image_path: str, caption: str, color: str = 'yellow') -
     draw = ImageDraw.Draw(overlay)
 
     # Compute safe area and text bounding box
-    safe_x = int(w * 0.10)
-    safe_y = int(h * 0.10)
-    safe_w = int(w * 0.80)
-    safe_h = int(h * 0.80)
+    safe_x = int(w * 0.15)
+    safe_y = int(h * 0.15)
+    safe_w = int(w * 0.70)
+    safe_h = int(h * 0.70)
+
+    # Derive wrapping: if text has spaces, use word-based wrap; otherwise measure per-character to split.
+    available_width = safe_w
+    estimated_glyph_width = fontsize * 0.6
+
+    # Precompute letter spacing for this block once
+    try:
+        line_letter_spacing_px = _line_letter_spacing(caption_up)
+    except Exception:
+        line_letter_spacing_px = int(max(0, fontsize * 0.02))
+
+    def _split_no_space_text_to_lines(text: str) -> list:
+        """Split a long string without spaces into lines based on measured widths.
+
+        Measures each character width using the current font and accumulates until
+        the line reaches available width considering per-character letter spacing.
+        """
+        if not text:
+            return []
+        lines_acc = []
+        current_line = []
+        current_width = 0
+        # Use precomputed letter spacing for this text block
+        ls_px = line_letter_spacing_px
+
+        for i, ch in enumerate(text):
+            try:
+                ch_bbox = draw.textbbox((0, 0), ch, font=font)
+                ch_w = ch_bbox[2] - ch_bbox[0]
+            except Exception:
+                ch_w = int(estimated_glyph_width)
+
+            # extra spacing before this char except first in line
+            extra = ls_px if current_line else 0
+            if current_width + extra + ch_w <= available_width:
+                current_line.append(ch)
+                current_width += extra + ch_w
+            else:
+                # finalize current line
+                if current_line:
+                    lines_acc.append(''.join(current_line))
+                # start new line
+                current_line = [ch]
+                current_width = ch_w
+
+        if current_line:
+            lines_acc.append(''.join(current_line))
+        return lines_acc
+
+    if ' ' in caption_up:
+        # word-based wrapping using measured pixel widths; fallback to char-splitting for long words
+        try:
+            space_bbox = draw.textbbox((0, 0), " ", font=font)
+            space_w = space_bbox[2] - space_bbox[0]
+        except Exception:
+            space_w = int(estimated_glyph_width * 0.33)
+
+        def _wrap_by_words_measured(text: str) -> list:
+            """Wrap text by words to fit available width using measured pixel widths.
+
+            - Measures each word with `draw.textbbox` for accurate width.
+            - Adds space width and letter spacing between words.
+            - If a single word exceeds available width, splits it using
+              `_split_no_space_text_to_lines(word)` and places segments accordingly.
+            """
+            words = text.split()
+            if not words:
+                return []
+            ls_px_line = line_letter_spacing_px
+            lines_acc = []
+            current_words = []
+            current_width = 0
+
+            for idx, word in enumerate(words):
+                # measure word width
+                try:
+                    w_bbox = draw.textbbox((0, 0), word, font=font)
+                    w_w = w_bbox[2] - w_bbox[0]
+                except Exception:
+                    w_w = int(len(word) * estimated_glyph_width)
+
+                # width to add if appended to current line
+                sep_w = (space_w + ls_px_line) if current_words else 0
+                need_w = sep_w + w_w
+
+                if need_w <= available_width and current_width + need_w <= available_width:
+                    # fits current line
+                    current_words.append(word)
+                    current_width += need_w
+                else:
+                    # if the word itself is too long, split by characters and place segments
+                    if w_w > available_width:
+                        # finalize current line first if it has content
+                        if current_words:
+                            lines_acc.append(' '.join(current_words))
+                            current_words = []
+                            current_width = 0
+
+                        segments = _split_no_space_text_to_lines(word)
+                        # place each segment as its own line
+                        for seg in segments:
+                            lines_acc.append(seg)
+                    else:
+                        # move current line to accumulator and start a new line with this word
+                        if current_words:
+                            lines_acc.append(' '.join(current_words))
+                        current_words = [word]
+                        current_width = w_w
+
+            if current_words:
+                lines_acc.append(' '.join(current_words))
+            return lines_acc
+
+        lines = _wrap_by_words_measured(caption_up)
+    else:
+        # no spaces: split using measured widths
+        lines = _split_no_space_text_to_lines(caption_up)
 
     # Helper: detect if a character is CJK/Han/Hangul/Katakana/Hiragana
     def _is_cjk_char(ch: str) -> bool:
@@ -249,12 +282,12 @@ def add_caption_to_image(image_path: str, caption: str, color: str = 'yellow') -
                 total_h += spacing
         return max_w, total_h, typical_h
 
-    def _draw_text_block(origin_x, origin_y, lines_list, fill=(255, 255, 0, 255), stroke_width=0, stroke_fill=None):
+    def _draw_text_block(origin_x, origin_y, lines_list, block_w, fill=(255, 255, 0, 255), stroke_width=0, stroke_fill=None):
         x0, y0 = origin_x, origin_y
         _, _, typical_h = _measure_text_block(lines_list)
         y = y0
         for ln in lines_list:
-            # center each line inside safe area horizontally
+            # center each line inside the text block width
             line_w = 0
             ch_widths = []
             ls_px = _line_letter_spacing(ln)
@@ -268,7 +301,7 @@ def add_caption_to_image(image_path: str, caption: str, color: str = 'yellow') -
                 line_w += ch_w
                 if i < len(ln) - 1:
                     line_w += ls_px
-            x = origin_x + max(0, (safe_w - line_w) // 2)
+            x = origin_x + max(0, (block_w - line_w) // 2)
             for i, ch in enumerate(ln):
                 draw.text((x, y), ch, font=font, fill=fill,
                           stroke_width=stroke_width or 0,
@@ -285,13 +318,13 @@ def add_caption_to_image(image_path: str, caption: str, color: str = 'yellow') -
 
     # Subtle shadow
     shadow_offset = (2, 2)
-    _draw_text_block(tx + shadow_offset[0], ty + shadow_offset[1], lines, fill=(0, 0, 0, 180))
+    _draw_text_block(tx + shadow_offset[0], ty + shadow_offset[1], lines, text_w, fill=(0, 0, 0, 180))
     # Simulate bold: extra passes without stroke
     bold_offset = max(1, int(fontsize * 0.02))
     for ox, oy in [(bold_offset, 0), (-bold_offset, 0), (0, bold_offset), (0, -bold_offset)]:
-        _draw_text_block(tx + ox, ty + oy, lines, fill=(*text_color, 255))
+        _draw_text_block(tx + ox, ty + oy, lines, text_w, fill=(*text_color, 255))
     # Main text: specified color with black stroke
-    _draw_text_block(tx, ty, lines, fill=(*text_color, 255), stroke_width=2, stroke_fill=(0, 0, 0, 255))
+    _draw_text_block(tx, ty, lines, text_w, fill=(*text_color, 255), stroke_width=2, stroke_fill=(0, 0, 0, 255))
 
     # Composite using MoviePy
     try:
@@ -415,7 +448,11 @@ def generate_thumbnail(video_path, caption: str = None, color: str = 'yellow'):
         os.rmdir(temp_dir)
         return None
 
-    output_thumbnail_path = os.path.join(os.path.dirname(video_path), 'generated_thumbnail.jpg')
+    # Use a randomized filename to avoid conflicts/overwrites in concurrent or repeated runs
+    output_thumbnail_path = os.path.join(
+        os.path.dirname(video_path), f"generated_thumbnail_{uuid.uuid4().hex[:8]}.jpg"
+    )
+    
     stitch_command = [
         'ffmpeg',
         '-i', frame_paths[0],
