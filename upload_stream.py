@@ -6,7 +6,7 @@ import os
 import platform
 import signal
 from youtube.client import YouTubeClient
-from youtube.thumbnail import generate_stream_thumbnail
+from youtube.thumbnail import generate_stream_thumbnail, add_caption_to_image
 from streamer import Streamer
 
 def shutdown_after_duration(duration_seconds, duration_hours):
@@ -33,6 +33,18 @@ def main():
     parser.add_argument("--privacy_status", default="unlisted", help="Privacy status of the live stream (public, private, or unlisted).")
     parser.add_argument("--proxy", help="Proxy server to use for requests (e.g., http://localhost:7897)", default=None)
     parser.add_argument("--duration", type=float, default=3.0, help="Maximum duration of the live stream in hours. Set to 0 for no limit.")
+    # Thumbnail and caption options (aligned with upload_video.py)
+    parser.add_argument("--thumbnail", type=str, help="Optional path to a custom thumbnail image")
+    parser.add_argument("--thumbnail_caption", type=str, default="", help="Caption text for the thumbnail (empty by default); will auto-wrap and center")
+    parser.add_argument(
+        "--thumbnail_color",
+        type=str,
+        default="yellow",
+        help=(
+            "Caption color (default: yellow). Options include: yellow, red, blue, "
+            "green, white, orange, purple, cyan"
+        ),
+    )
     args = parser.parse_args()
 
     credentials_file = os.path.join(args.auth_dir, "client_secret.json")
@@ -87,19 +99,67 @@ def main():
 
     broadcast_id = broadcast["id"]
 
-    # Generate and set the thumbnail
-    print("Generating thumbnail for the stream...")
-    thumbnail_path = generate_stream_thumbnail(args.video_file)
+    # Prepare and set the thumbnail (supports caption and color, consistent with upload_video.py)
+    print("Preparing thumbnail for the stream...")
+
+    def prepare_thumbnail_with_caption(video_path: str, base_thumbnail: str, caption: str, color: str) -> str:
+        """Prepare a thumbnail for the stream.
+
+        - Always generate a thumbnail from the video (auto-generation for streams).
+        - If a caption is provided and a base thumbnail exists, overlay the caption on a copy of the base.
+        - If caption is provided but no base thumbnail, overlay the caption on the generated thumbnail.
+        - If no caption is provided, generate from the video without caption.
+
+        Args:
+            video_path: The source video path used to generate thumbnail.
+            base_thumbnail: An existing thumbnail image to copy and caption, if caption is provided.
+            caption: The text to overlay on the thumbnail.
+            color: The color for caption text (e.g., 'yellow', 'red', 'blue').
+        """
+        caption_text = caption.strip() if caption else ""
+
+        # If caption provided and base thumbnail exists, overlay on base copy
+        if caption_text and base_thumbnail and os.path.exists(base_thumbnail):
+            root, ext = os.path.splitext(base_thumbnail)
+            ext = ext or ".jpg"
+            captioned_path = f"{root}_captioned{ext}"
+            try:
+                import shutil
+                shutil.copy(base_thumbnail, captioned_path)
+                result = add_caption_to_image(captioned_path, caption_text, color=color)
+                if result:
+                    return result
+                else:
+                    print("Failed to overlay caption on provided thumbnail. Will attempt to generate from video.")
+            except Exception as e:
+                print(f"Error preparing captioned thumbnail from provided file: {e}")
+
+        # Generate from video (with caption if provided)
+        generated = generate_stream_thumbnail(video_path, caption_text if caption_text else None, color=color)
+        if generated:
+            return generated
+        else:
+            print("Failed to generate thumbnail from video.")
+            return None
+
+    thumbnail_path = prepare_thumbnail_with_caption(
+        args.video_file, args.thumbnail, args.thumbnail_caption, args.thumbnail_color
+    )
+
     if thumbnail_path:
         try:
             client.set_thumbnail(broadcast_id, thumbnail_path)
             print(f"Successfully set thumbnail: {thumbnail_path}")
-            os.remove(thumbnail_path) # Clean up the generated thumbnail
-            print(f"Removed generated thumbnail: {thumbnail_path}")
+            # Clean up generated thumbnail if it was produced during this run
+            try:
+                os.remove(thumbnail_path)
+                print(f"Removed generated thumbnail: {thumbnail_path}")
+            except Exception:
+                pass
         except Exception as e:
             print(f"Failed to set thumbnail: {e}")
     else:
-        print("Thumbnail generation failed or was skipped.")
+        print("Thumbnail preparation failed or was skipped.")
 
     stream_url = f"{stream['cdn']['ingestionInfo']['ingestionAddress']}/{stream['cdn']['ingestionInfo']['streamName']}"
 
