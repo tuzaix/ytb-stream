@@ -120,8 +120,6 @@ def main():
     
     print(f"Thumbnail path: {thumbnail_path}")
 
-    return 
-
     _, published = client.upload_video(
         file_path=video_to_upload,
         title=args.title,
