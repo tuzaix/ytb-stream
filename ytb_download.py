@@ -89,8 +89,8 @@ def download_channel(output_dir: str, channel_identifier: str, settings: Optiona
     videos_tab, shorts_tab = build_channel_tab_urls(channel_identifier)
 
     # 分别创建两个子目录
-    videos_dir = os.path.join(output_dir, "videos")
-    shorts_dir = os.path.join(output_dir, "shorts")
+    videos_dir = os.path.join(output_dir, channel_identifier, "videos")
+    shorts_dir = os.path.join(output_dir, channel_identifier, "shorts")
     _ensure_dir(videos_dir)
     _ensure_dir(shorts_dir)
 

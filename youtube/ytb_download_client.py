@@ -591,6 +591,8 @@ class YTBDownloadClient:
                         fp2 = self._safe_rename_with_date(fp, info)
                         if fp2:
                             downloaded_files.append(fp2)
+                            # 每完成一个视频的下载（包含重命名），立即打印
+                            print(f"已完成下载：{fp2}")
                             break
                         # 若未获取到文件名视为失败
                         raise RuntimeError("No filename in info")
