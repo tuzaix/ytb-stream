@@ -326,24 +326,20 @@ def add_caption_to_image(image_path: str, caption: str, color: str = 'yellow') -
     # Main text: specified color with black stroke
     _draw_text_block(tx, ty, lines, text_w, fill=(*text_color, 255), stroke_width=2, stroke_fill=(0, 0, 0, 255))
 
-    # Composite using MoviePy
+    # Composite and save using PIL to avoid RGBA->JPEG errors
     try:
-        base_clip = mp.ImageClip(np.array(base_img))
-        overlay_clip = mp.ImageClip(np.array(overlay))
-        composite = mp.CompositeVideoClip([base_clip, overlay_clip])
-        composite.save_frame(image_path)
+        composed = base_img.convert("RGBA")
+        composed.alpha_composite(overlay)
+        # Save according to extension: JPG/JPEG requires RGB (no alpha)
+        lower = image_path.lower()
+        if lower.endswith((".jpg", ".jpeg")):
+            composed.convert("RGB").save(image_path, quality=95)
+        else:
+            composed.save(image_path)
         return image_path
     except Exception as e:
-        print(f"Error composing caption with MoviePy: {e}")
-        try:
-            # Fallback: paste overlay directly with PIL
-            composed = base_img.convert("RGBA")
-            composed.alpha_composite(overlay)
-            composed.convert("RGB").save(image_path)
-            return image_path
-        except Exception as e2:
-            print(f"Error saving captioned image with PIL fallback: {e2}")
-            return None
+        print(f"Error saving captioned image: {e}")
+        return None
 
 def get_video_duration(video_path):
     """Gets the duration of a video in seconds using ffprobe."""

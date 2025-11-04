@@ -25,6 +25,7 @@ import sys
 import uuid
 from typing import List
 import shutil
+import time 
 
 
 # 允许从项目根目录运行 `python tools/generate_screen_covers.py`
@@ -110,7 +111,7 @@ def save_stitched_cover(stitched_image_path: str, images_dir: str) -> str:
     out_path = os.path.join(out_dir, out_name)
 
     try:
-        shutil.copy2(stitched_image_path, out_path)
+        shutil.move(stitched_image_path, out_path)
         return out_path
     except Exception as e:
         print(f"Error copying stitched cover: {e}")
@@ -142,8 +143,8 @@ def main() -> None:
     parser.add_argument("images_dir", help="图片目录")
     parser.add_argument("--caption", default=None, help="字幕文本")
     parser.add_argument("--count", type=int, default=10, help="生成的封面图片个数，默认 10")
-    parser.add_argument("--per-cover", type=int, default=3, help="每个封面由几张图片组成，默认 3")
-    parser.add_argument("--seed", type=int, default=None, help="随机种子，可选")
+    parser.add_argument("--per-cover", type=int, default=4, help="每个封面由几张图片组成，默认 4")
+    parser.add_argument("--seed", type=int, default=int(time.time()), help="随机种子，可选")
     parser.add_argument("--color", default="yellow", help="字幕颜色，默认 yellow")
 
     args = parser.parse_args()
