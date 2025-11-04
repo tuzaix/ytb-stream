@@ -379,19 +379,88 @@ def get_video_resolution(video_path):
         print(f"Error getting video resolution: {e}")
         return None, None
 
-def generate_thumbnail(video_path, caption: str = None, color: str = 'yellow'):
+def generate_thumbnail(
+    video_path: str | None = None,
+    image_paths: list[str] | None = None,
+    caption: str | None = None,
+    color: str = 'yellow'
+):
     """
-    Generates a thumbnail by stitching three random frames from a video
-    if the video is a vertical video (height > width).
+    生成封面图（缩略图）：支持传入图片组或从竖屏视频随机抽帧拼接。
 
-    Args:
-        video_path (str): The path to the video file.
-        caption (str): Optional caption to overlay on the thumbnail.
-        color (str): Color for the caption text.
+    - 图片组：将 `image_paths` 中的图片按高度对齐并水平拼接，边缘采用渐变融合，最终输出到第一张图片所在目录。
+    - 视频：仅当为竖屏视频（高度>宽度）且时长>=180s 时，从中随机抽取 3 帧并拼接，输出到视频同目录。
+    - 可选在生成后叠加字幕（颜色可选）。
 
-    Returns:
-        str: The path to the generated thumbnail, or None if generation fails or conditions are not met.
+    参数：
+        video_path (str | None): 视频路径；不提供时必须提供 `image_paths`。
+        image_paths (list[str] | None): 图片路径列表；提供时优先使用图片生成封面。
+        caption (str | None): 可选字幕文本。
+        color (str): 字幕颜色。
+
+    返回：
+        str | None: 生成的封面图路径；失败返回 None。
     """
+    # 分支一：直接使用图片组拼接
+    if image_paths:
+        # 过滤不存在的路径
+        valid_paths = [p for p in image_paths if isinstance(p, str) and os.path.exists(p)]
+        if not valid_paths:
+            print("No valid image paths provided.")
+            return None
+
+        try:
+            imgs = [Image.open(p).convert('RGBA') for p in valid_paths]
+            target_h = min(img.height for img in imgs)
+
+            def _resize_to_h(img, h):
+                if img.height == h:
+                    return img
+                new_w = max(1, int(img.width * h / img.height))
+                return img.resize((new_w, h), Image.LANCZOS)
+
+            imgs = [_resize_to_h(img, target_h) for img in imgs]
+
+            widths = [img.width for img in imgs]
+            overlap = max(1, min(150, *widths))
+            total_w = sum(widths) - overlap * (len(imgs) - 1)
+            base = Image.new('RGBA', (total_w, target_h), (0, 0, 0, 0))
+
+            x = 0
+            for idx, img in enumerate(imgs):
+                if idx == 0:
+                    base.paste(img, (x, 0))
+                    x += img.width
+                else:
+                    alpha = np.ones((target_h, img.width), dtype=np.uint8) * 255
+                    for j in range(overlap):
+                        alpha_val = int(255 * (j / float(overlap)))
+                        alpha[:, j] = alpha_val
+                    mask = Image.fromarray(alpha, mode='L')
+                    x = x - overlap
+                    base.paste(img, (x, 0), mask)
+                    x += img.width
+
+            output_thumbnail_path = os.path.join(
+                os.path.dirname(valid_paths[0]), f"generated_thumbnail_{uuid.uuid4().hex[:8]}.jpg"
+            )
+
+            base.convert('RGB').save(output_thumbnail_path, quality=95)
+
+            if caption:
+                result = add_caption_to_image(output_thumbnail_path, caption, color=color)
+                if result is None:
+                    return None
+            return output_thumbnail_path
+        except Exception as e:
+            print(f"Error stitching provided images: {e}")
+            return None
+
+    # 分支二：从视频抽帧拼接（保留原有逻辑与限制）
+    if not video_path:
+        print("Either image_paths or video_path must be provided.")
+        return None
+
     duration = get_video_duration(video_path)
     width, height = get_video_resolution(video_path)
 
@@ -405,19 +474,17 @@ def generate_thumbnail(video_path, caption: str = None, color: str = 'yellow'):
         print("Video is not a vertical video, skipping thumbnail generation.")
         return None
 
-    if duration < 180: # 不足3分钟，则是shorts，不需要生成缩略图
+    if duration < 180:  # 不足3分钟，则是shorts，不需要生成缩略图
         print("Video duration is less than 180 seconds, skipping thumbnail generation.")
         return None
 
-    # Use a unique temp directory per run to avoid concurrency conflicts
     temp_dir = f"temp_frames_{uuid.uuid4().hex}"
     os.makedirs(temp_dir, exist_ok=True)
 
     frame_paths = []
-    run_id = uuid.uuid4().hex  # Unique suffix for frame file names
+    run_id = uuid.uuid4().hex
     for i in range(3):
         random_time = random.uniform(duration * 0.1, duration * 0.9)
-        # Make frame file names unique to avoid conflicts during concurrent runs
         frame_path = os.path.join(temp_dir, f'frame_{i+1}_{run_id}.jpg')
 
         command = [
@@ -444,57 +511,50 @@ def generate_thumbnail(video_path, caption: str = None, color: str = 'yellow'):
     if len(frame_paths) != 3:
         print("Could not extract 3 frames.")
         for fp in frame_paths:
-            os.remove(fp)
-        os.rmdir(temp_dir)
+            if os.path.exists(fp):
+                os.remove(fp)
+        if os.path.exists(temp_dir):
+            os.rmdir(temp_dir)
         return None
 
-    # Use a randomized filename to avoid conflicts/overwrites in concurrent or repeated runs
     output_thumbnail_path = os.path.join(
         os.path.dirname(video_path), f"generated_thumbnail_{uuid.uuid4().hex[:8]}.jpg"
     )
-    
-    # Stitch three frames horizontally with a 5px soft crossfade between images to reduce hard seams
+
     try:
         imgs = [Image.open(fp).convert('RGBA') for fp in frame_paths]
         target_h = min(img.height for img in imgs)
+
         def _resize_to_h(img, h):
             if img.height == h:
                 return img
             new_w = max(1, int(img.width * h / img.height))
             return img.resize((new_w, h), Image.LANCZOS)
+
         imgs = [_resize_to_h(img, target_h) for img in imgs]
 
-        w1, w2, w3 = (imgs[0].width, imgs[1].width, imgs[2].width)
-        overlap = 150
-        # Ensure overlap does not exceed any image width
-        overlap = max(1, min(overlap, w1, w2, w3))
-        new_w = w1 + w2 + w3 - 2 * overlap
-        base = Image.new('RGBA', (new_w, target_h), (0, 0, 0, 0))
-        # Paste first image fully
-        base.paste(imgs[0], (0, 0))
+        widths = [img.width for img in imgs]
+        overlap = max(1, min(150, *widths))
+        total_w = sum(widths) - overlap * (len(imgs) - 1)
+        base = Image.new('RGBA', (total_w, target_h), (0, 0, 0, 0))
 
-        # Prepare alpha mask with left 5px gradient for second image
-        alpha2 = np.ones((target_h, w2), dtype=np.uint8) * 255
-        for j in range(overlap):
-            alpha_val = int(255 * (j / float(overlap)))
-            alpha2[:, j] = alpha_val
-        mask2 = Image.fromarray(alpha2, mode='L')
-        x2 = w1 - overlap
-        base.paste(imgs[1], (x2, 0), mask2)
+        x = 0
+        for idx, img in enumerate(imgs):
+            if idx == 0:
+                base.paste(img, (x, 0))
+                x += img.width
+            else:
+                alpha = np.ones((target_h, img.width), dtype=np.uint8) * 255
+                for j in range(overlap):
+                    alpha_val = int(255 * (j / float(overlap)))
+                    alpha[:, j] = alpha_val
+                mask = Image.fromarray(alpha, mode='L')
+                x = x - overlap
+                base.paste(img, (x, 0), mask)
+                x += img.width
 
-        # Prepare alpha mask with left 5px gradient for third image
-        alpha3 = np.ones((target_h, w3), dtype=np.uint8) * 255
-        for j in range(overlap):
-            alpha_val = int(255 * (j / float(overlap)))
-            alpha3[:, j] = alpha_val
-        mask3 = Image.fromarray(alpha3, mode='L')
-        x3 = x2 + w2 - overlap
-        base.paste(imgs[2], (x3, 0), mask3)
-
-        # Save stitched image
         base.convert('RGB').save(output_thumbnail_path, quality=95)
 
-        # If a caption is provided, overlay it on the stitched thumbnail
         if caption:
             result = add_caption_to_image(output_thumbnail_path, caption, color=color)
             if result is None:
@@ -504,8 +564,10 @@ def generate_thumbnail(video_path, caption: str = None, color: str = 'yellow'):
         output_thumbnail_path = None
 
     for fp in frame_paths:
-        os.remove(fp)
-    os.rmdir(temp_dir)
+        if os.path.exists(fp):
+            os.remove(fp)
+    if os.path.exists(temp_dir):
+        os.rmdir(temp_dir)
 
     return output_thumbnail_path
 
@@ -554,3 +616,119 @@ def generate_stream_thumbnail(video_path, caption: str = None, color: str = 'yel
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Error extracting single frame: {e.stderr if isinstance(e, subprocess.CalledProcessError) else e}")
             return None
+
+
+def generate_thumbhail_by_pics(pic_paths: list[str], output_path: str, caption: str = None, color: str = 'yellow') -> str | None:
+    """
+    从多张图片中生成拼接后的竖屏缩略图（三帧拼接），并可添加字幕。
+
+    Args:
+        pic_paths (list[str]): 输入图片路径列表（至少3张）。
+        output_path (str): 输出缩略图路径。
+        caption (str | None): 可选字幕内容。
+        color (str): 字幕颜色，默认黄色。
+
+    Returns:
+        str | None: 成功返回输出路径，失败返回 None。
+    """
+    if len(pic_paths) < 3:
+        print("Error: At least 3 pictures are required for stitched thumbnail.")
+        return None
+    return generate_thumbnail(pic_paths, caption, color)
+
+
+class ThumbnailGenerator:
+    """缩略图与字幕生成器（面向对象封装）。
+
+    该类封装了生成视频缩略图（竖屏拼接/直播截帧）与图片字幕渲染的能力，
+    保留原有过程式函数作为兼容方式，同时提供更易扩展的面向对象 API。
+
+    使用示例：
+        >>> tg = ThumbnailGenerator()
+        >>> # 为图片叠加字幕
+        >>> updated_img = tg.add_caption_to_image("/path/to/image.jpg", "这是标题", color="yellow")
+        >>> # 生成竖屏视频三帧拼接的缩略图并加字幕
+        >>> thumb = tg.generate_thumbnail("/path/to/video.mp4", caption="精彩瞬间", color="yellow")
+        >>> # 生成直播缩略图（横屏单帧/竖屏复用三帧拼接）
+        >>> stream_thumb = tg.generate_stream_thumbnail("/path/to/stream.mp4", caption="直播回放")
+
+    参数：
+        font_path (str | None): 指定字体路径；默认自动在 `fonts/` 中探测可用字体。
+        fontsize (int): 字体大小，默认 160。
+        spacing_ratio (float): 行距与字体大小比例，默认 0.5（约 1.5x 行高）。
+    """
+
+    def __init__(self, font_path: str | None = None, fontsize: int = 160, spacing_ratio: float = 0.5):
+        self.font_path = font_path or _find_font_file()
+        self.fontsize = fontsize
+        self.spacing_ratio = spacing_ratio
+        # 文本颜色映射
+        self.color_map = {
+            'yellow': (255, 255, 0),
+            'red': (255, 0, 0),
+            'blue': (0, 100, 255),
+            'green': (0, 255, 0),
+            'white': (255, 255, 255),
+            'orange': (255, 165, 0),
+            'purple': (128, 0, 128),
+            'cyan': (0, 255, 255),
+        }
+
+    def add_caption_to_image(self, image_path: str, caption: str, color: str = 'yellow') -> str | None:
+        """为图片叠加居中且自动换行的字幕。
+
+        - 依据安全区域（左右 15%、上下 15%）自动换行并居中排列。
+        - 默认黑色阴影与描边提升可读性，颜色可配置。
+        - 返回覆盖后的图片路径；失败返回 None。
+
+        参数：
+            image_path (str): 图片路径。
+            caption (str): 字幕文本。
+            color (str): 文本颜色名，如 'yellow'、'red' 等。
+
+        返回：
+            str | None: 处理后的图片路径或 None。
+        """
+        # 复用现有过程式实现，保持行为一致并降低引入风险
+        return add_caption_to_image(image_path, caption, color)
+
+    def get_video_duration(self, video_path: str) -> float | None:
+        """使用 ffprobe 获取视频时长（秒）。失败返回 None。"""
+        return get_video_duration(video_path)
+
+    def get_video_resolution(self, video_path: str) -> tuple[int | None, int | None]:
+        """使用 ffprobe 获取视频分辨率 (width, height)。失败返回 (None, None)。"""
+        return get_video_resolution(video_path)
+
+    def generate_thumbnail(
+        self,
+        video_path: str | None = None,
+        image_paths: list[str] | None = None,
+        caption: str | None = None,
+        color: str = 'yellow'
+    ) -> str | None:
+        """生成封面图：支持传入图片组或从竖屏视频随机抽帧拼接。
+
+        参数：
+            video_path (str | None): 视频路径；不提供时可传 `image_paths`。
+            image_paths (list[str] | None): 图片路径列表；优先使用图片生成。
+            caption (str | None): 可选字幕文本。
+            color (str): 字幕颜色。
+
+        返回：
+            str | None: 生成的封面图路径或 None。
+        """
+        return generate_thumbnail(video_path=video_path, image_paths=image_paths, caption=caption, color=color)
+
+    def generate_stream_thumbnail(self, video_path: str, caption: str | None = None, color: str = 'yellow') -> str | None:
+        """生成直播缩略图：竖屏复用三帧拼接；横/方屏截取单帧。
+
+        参数：
+            video_path (str): 视频路径。
+            caption (str | None): 可选字幕文本。
+            color (str): 字幕颜色。
+
+        返回：
+            str | None: 生成的缩略图路径或 None。
+        """
+        return generate_stream_thumbnail(video_path, caption, color)

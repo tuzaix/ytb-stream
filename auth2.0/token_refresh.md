@@ -32,7 +32,7 @@ python tools/list_channels.py --auth_dir "auth2.0/SnackFoodHacker"
 # 刷新sen下的的token
 ```
 QuickSnackMasters --> sen
-python tools/list_channels.py --auth_dir "auth2.0/QuickSnackMasters"
+python tools/list_channels.py --auth_dir "auth2.0/QuickFlavorRecipes"
 
 StreetFoodHacker --> sen
 python tools/list_channels.py --auth_dir "auth2.0/StreetFoodHacker"
