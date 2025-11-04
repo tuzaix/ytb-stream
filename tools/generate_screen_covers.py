@@ -10,7 +10,8 @@
 - `images_dir`：图片目录（必填）。
 - `--caption`：字幕文本（可选）。
 - `--count`：要生成的封面图片个数（默认 10）。
-- `--per-video`：每个封面由几张图片组成（默认 3）。
+- `--per-cover`：每个封面由几张图片组成（默认 3）。
+- `--workers`：并发线程数（默认根据 CPU，通常为 4）。
 - `--seed`：随机种子（可选，便于复现）。
 - `--color`：字幕颜色（默认 yellow）。
 
@@ -25,7 +26,8 @@ import sys
 import uuid
 from typing import List
 import shutil
-import time 
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 # 允许从项目根目录运行 `python tools/generate_screen_covers.py`
@@ -137,6 +139,49 @@ def generate_one_cover(
     return out_path
 
 
+def generate_covers_concurrently(
+    images_dir: str,
+    all_images: List[str],
+    count: int,
+    per_cover: int,
+    caption: str | None,
+    color: str,
+    workers: int,
+) -> int:
+    """并发生成封面图片。
+
+    - 先在主线程预生成每个任务的图片选择，避免并发影响随机数状态。
+    - 使用线程池并发执行 `generate_one_cover`。
+
+    Returns:
+        成功生成的封面数量。
+    """
+    tasks: List[List[str]] = [choose_images(all_images, per_cover) for _ in range(count)]
+    # 预览任务队列
+    for i, picks in enumerate(tasks, start=1):
+        print(f"[queued {i}/{count}] Using images: {', '.join(os.path.basename(p) for p in picks)}")
+
+    ok_count = 0
+    workers = max(1, int(workers))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        future_map = {
+            executor.submit(generate_one_cover, images_dir, picks, caption, color): i
+            for i, picks in enumerate(tasks, start=1)
+        }
+        for future in as_completed(future_map):
+            idx = future_map[future]
+            try:
+                result = future.result()
+                if result:
+                    ok_count += 1
+                    print(f"[done {idx}/{count}] Generated cover: {result}")
+                else:
+                    print(f"[done {idx}/{count}] Failed to generate cover")
+            except Exception as e:
+                print(f"[done {idx}/{count}] Exception: {e}")
+    return ok_count
+
+
 def main() -> None:
     """命令行入口：批量生成横向拼接的封面图片（screen_cover）。"""
     parser = argparse.ArgumentParser(description="Generate stitched cover images from a directory of photos.")
@@ -146,6 +191,8 @@ def main() -> None:
     parser.add_argument("--per-cover", type=int, default=4, help="每个封面由几张图片组成，默认 4")
     parser.add_argument("--seed", type=int, default=int(time.time()), help="随机种子，可选")
     parser.add_argument("--color", default="yellow", help="字幕颜色，默认 yellow")
+    workers_default = max(1, min(8, (os.cpu_count() or 1)))
+    parser.add_argument("--workers", type=int, default=workers_default, help=f"并发线程数，默认 {workers_default}")
 
     args = parser.parse_args()
 
@@ -162,23 +209,20 @@ def main() -> None:
         print(f"No images found in {images_dir}")
         sys.exit(1)
 
-    print(f"Found {len(all_images)} images. Generating {args.count} covers, {args.per_cover} images per cover.")
+    print(
+        f"Found {len(all_images)} images. Generating {args.count} covers, "
+        f"{args.per_cover} images per cover, workers={args.workers}."
+    )
 
-    generated = 0
-    for i in range(args.count):
-        picks = choose_images(all_images, args.per_cover)
-        print(f"[{i+1}/{args.count}] Using images: {', '.join(os.path.basename(p) for p in picks)}")
-        out_path = generate_one_cover(
-            images_dir=images_dir,
-            image_paths=picks,
-            caption=args.caption,
-            color=args.color,
-        )
-        if out_path:
-            generated += 1
-            print(f"Generated cover: {out_path}")
-        else:
-            print("Failed to generate cover for this batch.")
+    generated = generate_covers_concurrently(
+        images_dir=images_dir,
+        all_images=all_images,
+        count=args.count,
+        per_cover=args.per_cover,
+        caption=args.caption,
+        color=args.color,
+        workers=args.workers,
+    )
 
     print(f"Done. Successfully generated {generated}/{args.count} covers.")
 
