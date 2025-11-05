@@ -53,11 +53,12 @@ def main():
     if not video_files:
         print(f"No video files found in {selected_dir}.")
         return
-    thumbnail_files = [f for f in os.listdir(selected_dir_cover_dir) if os.path.isfile(os.path.join(selected_dir_cover_dir, f))]
-    if not thumbnail_files:
-        thumbnail_to_upload = None
-    else:
-        thumbnail_to_upload = os.path.join(selected_dir_cover_dir, random.choice(thumbnail_files))
+
+    thumbnail_to_upload = None
+    if os.path.exists(selected_dir_cover_dir) and os.path.isdir(selected_dir_cover_dir):
+        thumbnail_files = [f for f in os.listdir(selected_dir_cover_dir) if os.path.isfile(os.path.join(selected_dir_cover_dir, f))]
+        if thumbnail_files:
+            thumbnail_to_upload = os.path.join(selected_dir_cover_dir, random.choice(thumbnail_files))
     print(f"Selected thumbnail: {thumbnail_to_upload}")
 
     video_to_upload = os.path.join(selected_dir, random.choice(video_files))

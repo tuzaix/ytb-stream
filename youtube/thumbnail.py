@@ -379,7 +379,9 @@ def generate_thumbnail(
     video_path: str | None = None,
     image_paths: list[str] | None = None,
     caption: str | None = None,
-    color: str = 'yellow'
+    color: str = 'yellow',
+    compress: bool = True,
+    quality: int = 85,
 ):
     """
     生成封面图（缩略图）：支持传入图片组或从竖屏视频随机抽帧拼接。
@@ -387,6 +389,7 @@ def generate_thumbnail(
     - 图片组：将 `image_paths` 中的图片按高度对齐并水平拼接，边缘采用渐变融合，最终输出到第一张图片所在目录。
     - 视频：仅当为竖屏视频（高度>宽度）且时长>=180s 时，从中随机抽取 3 帧并拼接，输出到视频同目录。
     - 可选在生成后叠加字幕（颜色可选）。
+    - 默认开启轻量压缩（`compress=True`，`quality=85`），尽量不影响观感同时减少文件体积。
 
     参数：
         video_path (str | None): 视频路径；不提供时必须提供 `image_paths`。
@@ -397,6 +400,25 @@ def generate_thumbnail(
     返回：
         str | None: 生成的封面图路径；失败返回 None。
     """
+    def _save_compressed_jpeg(img: Image.Image, out_path: str, do_compress: bool, q: int):
+        """以优化的 JPEG 参数保存图片，兼顾体积与观感。
+
+        - 当 `do_compress=True` 时，使用 `quality=q`（默认 85）、`optimize=True`、`progressive=True`、`subsampling=2(4:2:0)`。
+        - 当 `do_compress=False` 时，使用较高质量（95），仍启用 `optimize=True` 与 `progressive=True`。
+        - 输入 `img` 将被转换为 `RGB` 以确保 JPEG 兼容。
+        """
+        img_rgb = img.convert('RGB')
+        params = {
+            'format': 'JPEG',
+            'optimize': True,
+            'progressive': True,
+            'subsampling': 2,
+        }
+        if do_compress:
+            params['quality'] = max(10, min(95, int(q)))
+        else:
+            params['quality'] = 95
+        img_rgb.save(out_path, **params)
     # 分支一：直接使用图片组拼接
     if image_paths:
         # 过滤不存在的路径
@@ -441,7 +463,7 @@ def generate_thumbnail(
                 os.path.dirname(valid_paths[0]), f"generated_thumbnail_{uuid.uuid4().hex[:8]}.jpg"
             )
 
-            base.convert('RGB').save(output_thumbnail_path, quality=95)
+            _save_compressed_jpeg(base, output_thumbnail_path, compress, quality)
 
             if caption:
                 result = add_caption_to_image(output_thumbnail_path, caption, color=color)
@@ -549,7 +571,7 @@ def generate_thumbnail(
                 base.paste(img, (x, 0), mask)
                 x += img.width
 
-        base.convert('RGB').save(output_thumbnail_path, quality=95)
+        _save_compressed_jpeg(base, output_thumbnail_path, compress, quality)
 
         if caption:
             result = add_caption_to_image(output_thumbnail_path, caption, color=color)
