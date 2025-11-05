@@ -7,7 +7,6 @@ source $bin/.venv/bin/activate
 CHOICE=$1
 TITLE=$2
 DESCRIPTION=$3
-THUMBNAIL=$4
 
 if [ -z "$CHOICE" ] || [ -z "$TITLE" ] || [ -z "$DESCRIPTION" ]; then
     echo "错误：缺少必要参数."
@@ -46,5 +45,4 @@ python $bin/upload_video.py --auth_dir $auth_base_dir \
                                 --video_dirs "${OPTS_VIDEO_DIRS[@]}" \
                                 --title "$TITLE" \
                                 --description "$DESCRIPTION" \
-                                --thumbnail "$THUMBNAIL" \
                                 --publish
