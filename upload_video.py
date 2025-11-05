@@ -46,12 +46,20 @@ def main():
         return
 
     selected_dir = random.choice(valid_dirs)
-    print(f"Selected directory: {selected_dir}")
+    selected_dir_cover_dir = os.path.join(selected_dir, "screen_cover") # 封面图目录
+    print(f"Selected directory: {selected_dir} {selected_dir_cover_dir}")
 
     video_files = [f for f in os.listdir(selected_dir) if os.path.isfile(os.path.join(selected_dir, f))]
     if not video_files:
         print(f"No video files found in {selected_dir}.")
         return
+    thumbnail_files = [f for f in os.listdir(selected_dir_cover_dir) if os.path.isfile(os.path.join(selected_dir_cover_dir, f))]
+    if not thumbnail_files:
+        print(f"No thumbnail files found in {selected_dir_cover_dir}.")
+        return
+
+    thumbnail_to_upload = os.path.join(selected_dir_cover_dir, random.choice(thumbnail_files))
+    print(f"Selected thumbnail: {thumbnail_to_upload}")
 
     video_to_upload = os.path.join(selected_dir, random.choice(video_files))
     print(f"Selected video: {video_to_upload}")
@@ -63,16 +71,39 @@ def main():
     def prepare_thumbnail_with_caption(video_path: str, base_thumbnail: str, caption: str, color: str) -> str:
         """Prepare a thumbnail with an optional caption overlay.
 
-        - If a base thumbnail is provided, copy it and overlay the caption with the specified color.
-        - Otherwise, generate a thumbnail from the video and overlay the caption with the specified color.
-        - Returns the path to the prepared thumbnail, or None on failure.
+        - If `base_thumbnail` is a file, copy it and overlay the caption.
+        - If `base_thumbnail` is a directory, randomly pick one image, move it to a
+          sibling directory named "<dir>_published", then use it as the base and overlay caption.
+        - If no usable base image, generate a thumbnail from the video and overlay caption.
+
+        Returns the path to the prepared thumbnail, or None on failure.
 
         Args:
             video_path: The source video path used to generate thumbnail when no base provided.
-            base_thumbnail: An existing thumbnail image to copy and caption.
+            base_thumbnail: An existing thumbnail image path or a directory containing images.
             caption: The text to overlay on the thumbnail.
             color: The color for caption text (e.g., 'yellow', 'red', 'blue').
         """
+        # If a directory is provided, randomly select one image and move it to '<dir>_published'
+        try:
+            if base_thumbnail and os.path.isdir(base_thumbnail):
+                allowed_exts = {".jpg", ".jpeg", ".png", ".webp"}
+                candidates = []
+                for name in os.listdir(base_thumbnail):
+                    full = os.path.join(base_thumbnail, name)
+                    if os.path.isfile(full) and os.path.splitext(name)[1].lower() in allowed_exts:
+                        candidates.append(full)
+                if not candidates:
+                    print(f"No image candidates found in directory: {base_thumbnail}")
+                    base_thumbnail = None
+                else:
+                    chosen = random.choice(candidates)
+                    print(f"Selected image to publish as thumbnail: {chosen}")
+                    base_thumbnail = chosen
+        except Exception as e:
+            print(f"Error handling thumbnail directory input: {e}")
+
+        # If no caption requested, return base thumbnail directly
         if not caption:
             return base_thumbnail
 
@@ -102,21 +133,15 @@ def main():
     # Decide on thumbnail generation based on rules:
     # - If a base thumbnail is provided, optionally overlay caption.
     # - If no base thumbnail is provided, generate only if video duration > 3 minutes.
-    if args.thumbnail:
-        thumbnail_path = prepare_thumbnail_with_caption(
-            video_to_upload, args.thumbnail, args.thumbnail_caption, args.thumbnail_color
-        )
-    else:
-        duration_sec = get_video_duration(video_to_upload)
-        if duration_sec is not None and duration_sec > 180:
-            caption_text = args.thumbnail_caption.strip()
-            thumbnail_path = generate_stream_thumbnail(
-                video_to_upload,
-                caption_text if caption_text else None,
-                color=args.thumbnail_color,
-            )
+    duration_sec = get_video_duration(video_to_upload)
+    thumbnail_path = None
+    if duration_sec is not None and duration_sec > 180:
+        if args.thumbnail:
+            thumbnail_path = prepare_thumbnail_with_caption(video_to_upload, args.thumbnail, args.thumbnail_caption, args.thumbnail_color)
         else:
-            thumbnail_path = None
+            # caption_text = args.thumbnail_caption.strip()
+            # thumbnail_path = generate_stream_thumbnail(video_to_upload, caption_text if caption_text else None, color=args.thumbnail_color)
+            thumbnail_path = thumbnail_to_upload
     
     print(f"Thumbnail path: {thumbnail_path}")
 
