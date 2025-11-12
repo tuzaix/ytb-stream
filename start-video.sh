@@ -4,20 +4,21 @@ bin=`cd $bin; pwd`
 
 source $bin/.venv/bin/activate
 
-CHOICE=$1
-TITLE=$2
-DESCRIPTION=$3
+GROUP=$1
+CHOICE=$2
+TITLE=$3
+DESCRIPTION=$4
 
-if [ -z "$CHOICE" ] || [ -z "$TITLE" ] || [ -z "$DESCRIPTION" ]; then
+if [ -z "$GROUP" ] || [ -z "$CHOICE" ] || [ -z "$TITLE" ] || [ -z "$DESCRIPTION" ]; then
     echo "错误：缺少必要参数."
-    echo "用法：$0 <类别> <视频标题> <视频说明>"
-    echo "示例：$0 WokStar \"视频标题\" \"视频说明\""
+    echo "用法：$0 <分组> <类别> <视频标题> <视频说明>"
+    echo "示例：$0 beauty WokStar \"视频标题\" \"视频说明\""
     exit 1
 fi
 
-BASE_DIR=/home/ftpuser_hostinger/files
+BASE_DIR=/home/ftp/${GROUP}/files
 
-auth_base_dir=$BASE_DIR/auth_impt/$CHOICE
+auth_base_dir=$BASE_DIR/auth2.0/$CHOICE
 video_base_dir=$BASE_DIR/video/$CHOICE
 
 OPTS_VIDEO_DIRS=()
