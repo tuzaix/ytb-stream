@@ -77,6 +77,59 @@ def prepare_thumbnail_with_caption(video_path: str, base_thumbnail: Optional[str
     return None, False
 
 
+def resolve_thumbnail_for_video(
+    selected_dir: str,
+    video_path: str,
+    provided_thumbnail: Optional[str],
+    caption: str,
+    color: str,
+) -> Tuple[Optional[str], bool]:
+    """Resolve final thumbnail for a given video.
+
+    Behavior:
+    - Looks for a `screen_cover/` subdirectory under `selected_dir` and randomly picks an image
+      candidate (jpg/jpeg/png/webp) as the preselected thumbnail.
+    - If the video duration is greater than 180 seconds (3 minutes):
+      - If `provided_thumbnail` exists, prepare a captioned thumbnail using it (non-destructive).
+      - Otherwise, fall back to the preselected screen cover image (if any).
+    - For shorter videos or failures, returns `(None, False)`.
+
+    Returns:
+      (thumbnail_path, is_generated)
+        - thumbnail_path: Resolved thumbnail path or None.
+        - is_generated: True if a new file was created (generated or captioned copy) and may be safely deleted.
+    """
+    # 3) Preselect thumbnail from screen_cover (filter image types)
+    selected_dir_cover_dir = os.path.join(selected_dir, "screen_cover")
+    thumbnail_preselected: Optional[str] = None
+    if os.path.exists(selected_dir_cover_dir) and os.path.isdir(selected_dir_cover_dir):
+        allowed_exts = {".jpg", ".jpeg", ".png", ".webp"}
+        thumb_candidates = [
+            f for f in os.listdir(selected_dir_cover_dir)
+            if os.path.isfile(os.path.join(selected_dir_cover_dir, f))
+            and os.path.splitext(f)[1].lower() in allowed_exts
+        ]
+        if thumb_candidates:
+            thumbnail_preselected = os.path.join(selected_dir_cover_dir, random.choice(thumb_candidates))
+    print(f"Preselected thumbnail: {thumbnail_preselected}")
+
+    # 4) Prepare final thumbnail based on rules
+    duration_sec = get_video_duration(video_path)
+    final_thumb: Optional[str] = None
+    final_thumb_generated: bool = False
+
+    if duration_sec is not None and duration_sec > 180:
+        if provided_thumbnail:
+            final_thumb, final_thumb_generated = prepare_thumbnail_with_caption(
+                video_path, provided_thumbnail, caption, color
+            )
+        else:
+            final_thumb = thumbnail_preselected
+            final_thumb_generated = False
+
+    return final_thumb, final_thumb_generated
+
+
 def upload_video_once(
     auth_dir: str,
     video_dirs: List[str],
@@ -126,38 +179,19 @@ def upload_video_once(
 
     # 2) Select directory & video file
     selected_dir = random.choice(valid_dirs)
-    selected_dir_cover_dir = os.path.join(selected_dir, "screen_cover")
-    print(f"Selected directory: {selected_dir} {selected_dir_cover_dir}")
+    print(f"Selected directory: {selected_dir}")
     video_files = [f for f in os.listdir(selected_dir) if os.path.isfile(os.path.join(selected_dir, f))]
     if not video_files:
         raise RuntimeError(f"No video files found in {selected_dir}.")
     video_to_upload = os.path.join(selected_dir, random.choice(video_files))
     print(f"Selected video: {video_to_upload}")
-
-    # 3) Preselect thumbnail from screen_cover
-    thumbnail_preselected: Optional[str] = None
-    if os.path.exists(selected_dir_cover_dir) and os.path.isdir(selected_dir_cover_dir):
-        thumb_candidates = [
-            f for f in os.listdir(selected_dir_cover_dir)
-            if os.path.isfile(os.path.join(selected_dir_cover_dir, f))
-        ]
-        if thumb_candidates:
-            thumbnail_preselected = os.path.join(selected_dir_cover_dir, random.choice(thumb_candidates))
-    print(f"Preselected thumbnail: {thumbnail_preselected}")
-
-    # 4) Prepare final thumbnail based on rules
-    duration_sec = get_video_duration(video_to_upload)
-    final_thumb: Optional[str] = None
-    final_thumb_generated: bool = False
-    if duration_sec is not None and duration_sec > 180:
-        if thumbnail:
-            final_thumb, final_thumb_generated = prepare_thumbnail_with_caption(
-                video_to_upload, thumbnail, thumbnail_caption, thumbnail_color
-            )
-        else:
-            final_thumb = thumbnail_preselected
-            final_thumb_generated = False
-
+    final_thumb, final_thumb_generated = resolve_thumbnail_for_video(
+        selected_dir,
+        video_to_upload,
+        thumbnail,
+        thumbnail_caption,
+        thumbnail_color,
+    )
     print(f"Thumbnail path: {final_thumb}")
 
     # 5) Upload
@@ -166,6 +200,7 @@ def upload_video_once(
         os.path.join(auth_dir, "token.json"),
     )
     video_tags = tags.split(",") if tags else None
+
     uploaded_id, published_flag = client.upload_video(
         file_path=video_to_upload,
         title=title,
@@ -200,6 +235,3 @@ def upload_video_once(
         "published": bool(published_flag),
         "uploaded_video_id": uploaded_id,
     }
-
-
-# CLI has been moved to upload_video_cli.py to keep this module import-only.
