@@ -53,7 +53,45 @@ YTB_ACCOUNT_MATERIAL_CONFIG = {
          ],  # 封面标题，
         "published": True,
     },
+    "FashionGirls": {
+        "copywriting": [ # 支持多种文案，随机选择发布，可以测试不同文案的数据情况
+            {
+                "title": "Hot Girls Street Style | Chinese Street Fashion",
+                
+                "description": """#trendingfashion #viralvideos #chinesefashion
+Hot Girls Street Style|Chinese Street Fashion
+#trendingfashion #viralvideos #chinesefashion #streetstyle #tiktok #koreanfashion #fashionstreetstyle
 
+🔥 Discover the most stunning street fashion looks from China!
+
+---
+
+🎥 Trending Tags
+#luxytrend #shortfeed #ytshorts #streetfashion #chinesestreetfashion #mejoresstreetfashion #chinatiktok #tiktok #shorts #Chinesegirl #beauty #koreanfashion #koreanstreetfashion
+
+---
+What You’ll Find:
+
+Top-tier street fashion trends from China 🇨🇳
+TikTok (Douyin)-inspired looks 🌟
+Elegant yet edgy Chinese girl street styles 👗
+Asian streetwear at its best 🌍
+Beautiful Chinese models redefining fashion ✨
+2025’s hottest fashion trends straight from Korea & China!
+---
+
+Keywords to Explore:
+Mejores street fashion China, Street style, TikTok Douyin, Beautiful Chinese girl trends, Korean street fashion 2025, Fashion couple goals, Mask girl, Chinese beauty dresses, Viral TikTok looks, Attitude vibes, and more!
+
+👉 Click Like, Share and Subscribe to not miss any videos from @FashionGirls-e4v 💚"""
+            }
+        ],
+        "tags": [],
+        "caption": [
+            "HOT ASIAN GIRLS FASHION STREET STYLE",
+         ],  # 封面标题，
+        "published": True,
+    },
 
 }
 
