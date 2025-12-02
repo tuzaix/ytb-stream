@@ -91,6 +91,9 @@ def list_video_urls_from_tab(tab_url: str, settings: Optional[YTDLPSettings] = N
             ydl_opts["proxy"] = settings.proxy
         if settings.cookiefile:
             ydl_opts["cookiefile"] = settings.cookiefile
+        # 支持从浏览器提取 Cookies
+        if getattr(settings, "cookies_from_browser", None):
+            ydl_opts["cookiesfrombrowser"] = (settings.cookies_from_browser,)
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(tab_url, download=False)
         if not info:
@@ -190,22 +193,59 @@ def batch_download_channel(identifier_or_url: str, target_dir: str, max_download
     raise RuntimeError("Deprecated API. Instantiate YTBDownloadClient and call batch_download_channel.")
 
 
-if __name__ == "__main__":
-    # 简易演示：根据环境变量或默认值进行测试（可自行修改）
-    import sys
-    print("ytb_download_client ready. Use functions in this module from your scripts.")
-    if len(sys.argv) >= 3 and sys.argv[1] == "single":
-        url = sys.argv[2]
-        target = sys.argv[3] if len(sys.argv) >= 4 else os.path.join(os.getcwd(), "downloads")
-        client = YTBDownloadClient(target_dir=target)
-        fp = client.download_video_by_url(url)
+def main_cli() -> None:
+    """命令行入口：支持 single 与 channel 两种模式，并新增 Cookies 参数。
+
+    使用示例：
+    - 下载单个视频：
+      python -m youtube.ytb_download_client single <url> --target ./downloads \
+          --cookies-from-browser chrome --cookies cookies.txt
+
+    - 批量下载频道：
+      python -m youtube.ytb_download_client channel <identifier_or_url> --target ./downloads \
+          --cookies-from-browser chrome --cookies cookies.txt
+    """
+    import argparse
+    import platform
+
+    parser = argparse.ArgumentParser(description="YouTube 下载客户端 (yt-dlp 封装)")
+    subparsers = parser.add_subparsers(dest="cmd", required=True)
+
+    def add_common(p):
+        p.add_argument("--target", default=os.path.join(os.getcwd(), "downloads"), help="下载保存目录（默认 ./downloads）")
+        p.add_argument("--cookies-from-browser", dest="cookies_from_browser", default=None, help="从浏览器提取 Cookies（例如 chrome/edge/firefox）")
+        p.add_argument("--cookies", dest="cookies", default=None, help="Cookies 文件路径（cookies.txt）")
+
+    sp_single = subparsers.add_parser("single", help="下载单个视频（URL）")
+    sp_single.add_argument("url", help="视频链接 URL")
+    add_common(sp_single)
+
+    sp_channel = subparsers.add_parser("channel", help="批量下载频道（ID/Handle/URL）")
+    sp_channel.add_argument("identifier", help="频道 ID / Handle / 个人页 URL")
+    add_common(sp_channel)
+
+    args = parser.parse_args()
+
+    # Windows 自动优化：未显式提供 cookies 参数时，默认从系统 Chrome 读取
+    if platform.system() == "Windows" and not args.cookies and not args.cookies_from_browser:
+        args.cookies_from_browser = "chrome"
+
+    settings = YTDLPSettings(
+        cookiefile=args.cookies,
+        cookies_from_browser=args.cookies_from_browser,
+    )
+    client = YTBDownloadClient(target_dir=args.target, settings=settings)
+
+    if args.cmd == "single":
+        fp = client.download_video_by_url(args.url)
         print("Downloaded:", fp)
-    elif len(sys.argv) >= 3 and sys.argv[1] == "channel":
-        ident = sys.argv[2]
-        target = sys.argv[3] if len(sys.argv) >= 4 else os.path.join(os.getcwd(), "downloads")
-        client = YTBDownloadClient(target_dir=target)
-        files = client.batch_download_channel(ident)
+    elif args.cmd == "channel":
+        files = client.batch_download_channel(args.identifier)
         print("Downloaded files:", files)
+
+
+if __name__ == "__main__":
+    main_cli()
 @dataclass
 class YTDLPSettings:
     """下载配置选项。
@@ -233,6 +273,7 @@ class YTDLPSettings:
     audio_quality: Optional[str] = None
     proxy: Optional[str] = None
     cookiefile: Optional[str] = None
+    cookies_from_browser: Optional[str] = None
     ratelimit: Optional[int] = None
     sleep_interval: Optional[float] = None
     max_sleep_interval: Optional[float] = None
@@ -274,6 +315,9 @@ def _build_ydl_opts(outtmpl: str, archive_path: str, settings: Optional[YTDLPSet
             base["proxy"] = settings.proxy
         if settings.cookiefile:
             base["cookiefile"] = settings.cookiefile
+        if getattr(settings, "cookies_from_browser", None):
+            # yt-dlp 接口需要 (browser, profile?, keyring?)，此处仅传入浏览器，默认配置下自动解析
+            base["cookiesfrombrowser"] = (settings.cookies_from_browser,)
         if settings.extractor_args:
             base["extractor_args"] = settings.extractor_args
         if settings.no_warnings:
@@ -481,6 +525,8 @@ class YTBDownloadClient:
             ydl_opts["proxy"] = self.settings.proxy
         if self.settings.cookiefile:
             ydl_opts["cookiefile"] = self.settings.cookiefile
+        if getattr(self.settings, "cookies_from_browser", None):
+            ydl_opts["cookiesfrombrowser"] = (self.settings.cookies_from_browser,)
         if self.settings.extractor_args:
             ydl_opts["extractor_args"] = self.settings.extractor_args
         if self.settings.no_warnings:
@@ -519,6 +565,8 @@ class YTBDownloadClient:
                 base_opts["proxy"] = self.settings.proxy
             if self.settings.cookiefile:
                 base_opts["cookiefile"] = self.settings.cookiefile
+            if getattr(self.settings, "cookies_from_browser", None):
+                base_opts["cookiesfrombrowser"] = (self.settings.cookies_from_browser,)
             if self.settings.extractor_args:
                 base_opts["extractor_args"] = self.settings.extractor_args
             if self.settings.no_warnings:
@@ -548,6 +596,8 @@ class YTBDownloadClient:
             ydl_opts["proxy"] = self.settings.proxy
         if self.settings.cookiefile:
             ydl_opts["cookiefile"] = self.settings.cookiefile
+        if getattr(self.settings, "cookies_from_browser", None):
+            ydl_opts["cookiesfrombrowser"] = (self.settings.cookies_from_browser,)
         if self.settings.extractor_args:
             ydl_opts["extractor_args"] = self.settings.extractor_args
         if self.settings.no_warnings:

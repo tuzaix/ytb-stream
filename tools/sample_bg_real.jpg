@@ -1,0 +1,15 @@
+from PIL import Image, ImageDraw
+import os
+
+# Create a simple gradient background
+img = Image.new('RGB', (1280, 720), color='#2c3e50')
+draw = ImageDraw.Draw(img)
+
+# Add some simple shapes for visual interest
+draw.ellipse([120, 70, 280, 230], fill='#e74c3c', outline=None)
+draw.ellipse([1000, 490, 1200, 650], fill='#3498db', outline=None)
+draw.rectangle([400, 300, 880, 420], fill='#f39c12', outline=None)
+
+# Save as JPEG
+img.save('tools/sample_bg.jpg', 'JPEG', quality=85)
+print("Sample background created: tools/sample_bg.jpg")

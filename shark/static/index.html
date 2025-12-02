@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shark YouTube Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/vue-i18n@9"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        [v-cloak] { display: none; }
+        .modal-enter-active, .modal-leave-active { transition: opacity 0.3s ease; }
+        .modal-enter-from, .modal-leave-to { opacity: 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+    <div id="app" v-cloak class="min-h-screen flex flex-col">
+        
+        <!-- Auth Screen -->
+        <div v-if="!isLoggedIn" class="flex-grow flex items-center justify-center">
+            <div class="bg-white p-8 rounded shadow-md w-full max-w-md">
+                <div class="flex justify-end mb-4">
+                    <button @click="setLocale('en')" :class="['px-2 py-1 text-xs rounded mr-2', currentLocale === 'en' ? 'bg-blue-600 text-white' : 'bg-gray-200']">EN</button>
+                    <button @click="setLocale('zh')" :class="['px-2 py-1 text-xs rounded', currentLocale === 'zh' ? 'bg-blue-600 text-white' : 'bg-gray-200']">中文</button>
+                </div>
+                <h1 class="text-2xl font-bold mb-6 text-center text-blue-600">{{ $t('app.title') }}</h1>
+                
+                <!-- Tabs -->
+                <div class="flex mb-4 border-b">
+                    <button @click="authMode = 'login'" :class="['flex-1 py-2', authMode === 'login' ? 'border-b-2 border-blue-500 font-bold' : 'text-gray-500']">{{ $t('auth.login') }}</button>
+                    <button @click="authMode = 'register'" :class="['flex-1 py-2', authMode === 'register' ? 'border-b-2 border-blue-500 font-bold' : 'text-gray-500']">{{ $t('auth.register') }}</button>
+                </div>
+
+                <form @submit.prevent="handleAuth">
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">{{ $t('auth.username') }}</label>
+                        <input v-model="authForm.username" type="text" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div class="mb-4" v-if="authMode === 'register'">
+                        <label class="block text-sm font-bold mb-2">{{ $t('auth.email') }}</label>
+                        <input v-model="authForm.email" type="email" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold mb-2">{{ $t('auth.password') }}</label>
+                        <input v-model="authForm.password" type="password" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+                        {{ authMode === 'login' ? $t('auth.sign_in') : $t('auth.create_account') }}
+                    </button>
+                </form>
+                <p v-if="authError" class="mt-4 text-red-500 text-sm text-center">{{ authError }}</p>
+            </div>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div v-else class="flex-grow flex flex-col h-screen">
+            <!-- Navbar -->
+            <header class="bg-white shadow px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center">
+                    <i class="fa-brands fa-youtube text-red-600 text-2xl mr-2"></i>
+                    <h1 class="text-xl font-bold text-gray-800">{{ $t('app.title') }}</h1>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex mr-4">
+                        <button @click="setLocale('en')" :class="['px-2 py-1 text-xs rounded-l border', currentLocale === 'en' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600']">EN</button>
+                        <button @click="setLocale('zh')" :class="['px-2 py-1 text-xs rounded-r border', currentLocale === 'zh' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600']">中文</button>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold">{{ user.username }}</p>
+                        <p class="text-xs text-gray-500">{{ user.membership ? $t('membership_levels.' + user.membership.level_code + '.name') : $t('memberships.no_membership') }}</p>
+                    </div>
+                    <button @click="logout" class="text-gray-500 hover:text-red-600" :title="$t('nav.logout')"><i class="fa-solid fa-sign-out-alt"></i></button>
+                </div>
+            </header>
+
+            <div class="flex flex-grow overflow-hidden">
+                <!-- Sidebar -->
+                <aside class="w-64 bg-gray-800 text-white flex-shrink-0 overflow-y-auto">
+                    <nav class="p-4 space-y-2">
+                        <a @click="currentView = 'dashboard'" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'dashboard' ? 'bg-blue-600' : 'hover:bg-gray-700']">
+                            <i class="fa-solid fa-gauge mr-2"></i> {{ $t('nav.dashboard') }}
+                        </a>
+                        <a @click="currentView = 'memberships'" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'memberships' ? 'bg-blue-600' : 'hover:bg-gray-700']">
+                            <i class="fa-solid fa-crown mr-2"></i> {{ $t('nav.memberships') }}
+                        </a>
+                        <a @click="currentView = 'accounts'" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'accounts' ? 'bg-blue-600' : 'hover:bg-gray-700']">
+                            <i class="fa-brands fa-youtube mr-2"></i> {{ $t('nav.accounts') }}
+                        </a>
+                        <a v-if="user.role === 'admin'" @click="fetchAllUsers(); currentView = 'admin'" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'admin' ? 'bg-blue-600' : 'hover:bg-gray-700']">
+                            <i class="fa-solid fa-users-gear mr-2"></i> {{ $t('admin.title') }}
+                        </a>
+                    </nav>
+                </aside>
+
+                <!-- Content -->
+                <main class="flex-grow p-6 overflow-y-auto bg-gray-50">
+                    
+                    <!-- Dashboard View -->
+                    <div v-if="currentView === 'dashboard'">
+                        <h2 class="text-2xl font-bold mb-6">{{ $t('dashboard.title') }}</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="bg-white p-6 rounded-lg shadow">
+                                <h3 class="text-gray-500 text-sm font-bold uppercase">{{ $t('dashboard.current_plan') }}</h3>
+                                <p class="text-3xl font-bold text-blue-600 mt-2">{{ user.membership ? $t('membership_levels.' + user.membership.level_code + '.name') : $t('memberships.free') }}</p>
+                                <p class="text-sm text-gray-400 mt-1">{{ $t('dashboard.expires') }}</p>
+                            </div>
+                            <div class="bg-white p-6 rounded-lg shadow">
+                                <h3 class="text-gray-500 text-sm font-bold uppercase">{{ $t('dashboard.accounts_used') }}</h3>
+                                <p class="text-3xl font-bold text-green-600 mt-2">{{ accounts.length }} / {{ user.membership?.max_youtube_accounts || 0 }}</p>
+                            </div>
+                            <div class="bg-white p-6 rounded-lg shadow">
+                                <h3 class="text-gray-500 text-sm font-bold uppercase">{{ $t('dashboard.ftp_storage') }}</h3>
+                                <p class="text-3xl font-bold text-purple-600 mt-2">{{ user.membership?.ftp_storage_mb || 0 }} MB</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Memberships View -->
+                    <div v-if="currentView === 'memberships'">
+                        <h2 class="text-2xl font-bold mb-6">{{ $t('memberships.title') }}</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div v-for="plan in memberships" :key="plan.id" class="bg-white rounded-lg shadow overflow-hidden relative">
+                                <div v-if="user.membership?.id === plan.id" class="absolute top-0 right-0 bg-green-500 text-white text-xs px-2 py-1">{{ $t('memberships.current') }}</div>
+                                <div class="p-6">
+                                    <h3 class="text-xl font-bold text-gray-800">{{ $t('membership_levels.' + plan.level_code + '.name') }}</h3>
+                                    <p class="text-3xl font-bold text-blue-600 mt-4">¥{{ plan.price_monthly }}<span class="text-sm text-gray-500">{{ $t('memberships.month') }}</span></p>
+                                    <p class="text-gray-600 mt-4 h-12">{{ $t('membership_levels.' + plan.level_code + '.description') }}</p>
+                                    <ul class="mt-6 space-y-2 text-sm text-gray-600">
+                                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i> {{ plan.max_youtube_accounts }} {{ $t('memberships.youtube_accounts') }}</li>
+                                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i> {{ plan.ftp_storage_mb }} {{ $t('memberships.ftp_storage') }}</li>
+                                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i> {{ plan.ftp_speed_kbps }} {{ $t('memberships.ftp_speed') }}</li>
+                                    </ul>
+                                    <button @click="purchaseMembership(plan.level_code)" 
+                                        :disabled="user.membership?.id === plan.id"
+                                        class="w-full mt-6 py-2 rounded font-bold transition"
+                                        :class="user.membership?.id === plan.id ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'">
+                                        {{ user.membership?.id === plan.id ? $t('memberships.active') : $t('memberships.upgrade') }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Accounts View -->
+                    <div v-if="currentView === 'accounts'">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold">{{ $t('accounts.title') }}</h2>
+                            <button @click="showAddAccountModal = true" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                                <i class="fa-solid fa-plus mr-2"></i> {{ $t('accounts.add_btn') }}
+                            </button>
+                        </div>
+
+                        <div class="bg-white rounded shadow overflow-hidden">
+                            <table class="min-w-full leading-normal">
+                                <thead>
+                                    <tr>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('accounts.table.account_user') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('accounts.table.youtube_link') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('accounts.table.status') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('accounts.table.actions') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="acc in accounts" :key="acc.id">
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm font-bold">{{ acc.account_name }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            <a :href="'https://youtube.com/@' + acc.account_name" target="_blank" class="text-blue-600 hover:underline flex items-center">
+                                                <i class="fa-brands fa-youtube mr-1 text-red-600"></i> @{{ acc.account_name }}
+                                            </a>
+                                        </td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            <span class="relative inline-block px-3 py-1 font-semibold text-green-900 leading-tight">
+                                                <span aria-hidden="true" class="absolute inset-0 bg-green-200 opacity-50 rounded-full"></span>
+                                                <span class="relative">{{ $t('accounts.status.active') }}</span>
+                                            </span>
+                                        </td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            <div class="flex flex-wrap gap-2">
+                                                <button @click="copyFtpInfo(acc)" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-xs font-bold transition flex items-center" :title="$t('accounts.copy_ftp_btn')">
+                                                    <i class="fa-solid fa-copy mr-1"></i> {{ $t('accounts.copy_ftp_btn') }}
+                                                </button>
+                                                <button @click="openMaterials(acc)" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-bold transition flex items-center">
+                                                    <i class="fa-solid fa-folder-open mr-1"></i> {{ $t('accounts.materials_btn') }}
+                                                </button>
+                                                <button @click="openSchedules(acc)" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs font-bold transition flex items-center">
+                                                    <i class="fa-solid fa-calendar-days mr-1"></i> {{ $t('accounts.schedules_btn') }}
+                                                </button>
+                                                <button @click="openUpdateAuth(acc)" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs font-bold transition flex items-center">
+                                                    <i class="fa-solid fa-key mr-1"></i> {{ $t('accounts.auth_btn') }}
+                                                </button>
+                                                <button @click.stop="deleteAccount(acc)" :disabled="deletingAccountIds.has(acc.id)" :class="['text-white px-3 py-1 rounded text-xs font-bold transition flex items-center', deletingAccountIds.has(acc.id) ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700']">
+                                                    <i v-if="deletingAccountIds.has(acc.id)" class="fa-solid fa-circle-notch fa-spin mr-1"></i>
+                                                    <i v-else class="fa-solid fa-trash mr-1"></i> 
+                                                    {{ $t('accounts.delete_account_btn') }}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr v-if="accounts.length === 0">
+                                        <td colspan="5" class="px-5 py-5 text-center text-gray-500">{{ $t('accounts.empty') }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Admin View -->
+                    <div v-if="currentView === 'admin'">
+                        <h2 class="text-2xl font-bold mb-6">{{ $t('admin.users_title') }}</h2>
+                        <div class="bg-white rounded shadow overflow-hidden">
+                            <table class="min-w-full leading-normal">
+                                <thead>
+                                    <tr>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('admin.table.id') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('admin.table.username') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('admin.table.email') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('admin.table.role') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('admin.table.membership') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('admin.table.status') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('admin.table.actions') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="u in allUsers" :key="u.id">
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ u.id }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm font-bold">{{ u.username }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ u.email }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            <span :class="['px-2 py-1 text-xs rounded font-bold', u.role === 'admin' ? 'bg-red-200 text-red-800' : 'bg-gray-200 text-gray-800']">{{ u.role }}</span>
+                                        </td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            {{ u.membership ? $t('membership_levels.' + u.membership.level_code + '.name') : '-' }}
+                                        </td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            <span :class="['px-2 py-1 text-xs rounded font-bold', u.is_active ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800']">{{ u.is_active ? 'Active' : 'Inactive' }}</span>
+                                        </td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            <button @click="openEditUser(u)" class="text-blue-600 hover:text-blue-900"><i class="fa-solid fa-edit"></i></button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        
+        <!-- Add Account Modal -->
+        <div v-if="showAddAccountModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded shadow-lg w-96">
+                <h3 class="text-lg font-bold mb-4">{{ $t('modal.create_account.title') }}</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold mb-1">{{ $t('modal.create_account.placeholder') }}</label>
+                        <input v-model="newAccountName" type="text" class="w-full border p-2 rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold mb-1">client_secret.json</label>
+                        <input type="file" @change="handleClientSecretUpload" accept=".json" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold mb-1">token.json</label>
+                        <input type="file" @change="handleTokenUpload" accept=".json" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button @click="showAddAccountModal = false" class="text-gray-500 hover:text-gray-700 px-4 py-2">{{ $t('common.cancel') }}</button>
+                    <button @click="createAccount" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">{{ $t('common.create') }}</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Success Modal -->
+        <div v-if="showAccountSuccessModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+             <div class="bg-white p-6 rounded shadow-lg w-full max-w-md">
+                <h3 class="text-xl font-bold mb-4 text-green-600"><i class="fa-solid fa-check-circle mr-2"></i> Account Created!</h3>
+                <p class="mb-4 text-gray-600">Please save your FTP credentials.</p>
+                
+                <div class="bg-gray-100 p-4 rounded font-mono text-sm space-y-2 mb-6">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">FTP Host:</span>
+                        <span class="font-bold select-all">{{ createdAccountInfo?.ftp_host }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">FTP Port:</span>
+                        <span class="font-bold select-all">{{ createdAccountInfo?.ftp_port }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Username:</span>
+                        <span class="font-bold select-all">{{ createdAccountInfo?.account_name }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Password:</span>
+                        <span class="font-bold select-all">{{ createdAccountInfo?.ftp_password }}</span>
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <button @click="showAccountSuccessModal = false" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Done</button>
+                </div>
+             </div>
+        </div>
+
+        <!-- Update Auth Modal -->
+        <div v-if="showUpdateAuthModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded shadow-lg w-96">
+                <h3 class="text-lg font-bold mb-4">{{ $t('modal.update_auth.title', { name: selectedAccount?.account_name }) }}</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold mb-1">client_secret.json</label>
+                        <input type="file" @change="handleUpdateAuthClientSecretUpload" accept=".json" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold mb-1">token.json</label>
+                        <input type="file" @change="handleUpdateAuthTokenUpload" accept=".json" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button @click="showUpdateAuthModal = false" class="text-gray-500 hover:text-gray-700 px-4 py-2">{{ $t('common.cancel') }}</button>
+                    <button @click="updateAuth" class="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700">{{ $t('modal.update_auth.btn') }}</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Materials Modal -->
+        <div v-if="showMaterialsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold">{{ $t('modal.materials.title', { name: selectedAccount?.account_name }) }}</h3>
+                    <button @click="showMaterialsModal = false" class="text-gray-500"><i class="fa-solid fa-times"></i></button>
+                </div>
+                
+                <!-- List Materials -->
+                <div class="space-y-4 mb-6">
+                    <div v-for="mat in currentMaterials" :key="mat.id" class="border p-4 rounded bg-gray-50">
+                        <div class="flex justify-between">
+                            <h4 class="font-bold">{{ mat.group_name }} <span class="text-xs bg-gray-200 px-2 py-1 rounded ml-2">{{ mat.material_type }}</span></h4>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-1">{{ $t('modal.materials.title_template') }}: {{ mat.title_template }}</p>
+                        <p class="text-sm text-gray-600">{{ $t('modal.materials.tags') }}: {{ mat.tags }}</p>
+                    </div>
+                    <p v-if="currentMaterials.length === 0" class="text-gray-500 text-sm">{{ $t('modal.materials.empty') }}</p>
+                </div>
+
+                <!-- Add Material Form -->
+                <div class="border-t pt-4">
+                    <h4 class="font-bold mb-2 text-sm">{{ $t('modal.materials.add_title') }}</h4>
+                    <div class="grid grid-cols-2 gap-4 mb-2">
+                        <input v-model="newMaterial.group_name" :placeholder="$t('modal.materials.group_placeholder')" class="border p-2 rounded text-sm">
+                        <select v-model="newMaterial.material_type" class="border p-2 rounded text-sm">
+                            <option value="shorts">{{ $t('common.shorts') }}</option>
+                            <option value="long">{{ $t('common.long') }}</option>
+                        </select>
+                    </div>
+                    <input v-model="newMaterial.title_template" :placeholder="$t('modal.materials.title_template')" class="w-full border p-2 rounded mb-2 text-sm">
+                    <textarea v-model="newMaterial.description_template" :placeholder="$t('modal.materials.desc_placeholder')" class="w-full border p-2 rounded mb-2 text-sm" rows="2"></textarea>
+                    <input v-model="newMaterial.tags" :placeholder="$t('modal.materials.tags_placeholder')" class="w-full border p-2 rounded mb-4 text-sm">
+                    <button @click="createMaterial" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm">{{ $t('modal.materials.add_btn') }}</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedules Modal -->
+        <div v-if="showSchedulesModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded shadow-lg w-full max-w-xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold">{{ $t('modal.schedules.title', { name: selectedAccount?.account_name }) }}</h3>
+                    <button @click="showSchedulesModal = false" class="text-gray-500"><i class="fa-solid fa-times"></i></button>
+                </div>
+
+                <!-- List Schedules -->
+                <div class="space-y-2 mb-6">
+                    <div v-for="sch in currentSchedules" :key="sch.id" class="border p-3 rounded flex justify-between items-center">
+                        <div>
+                            <span class="font-mono bg-gray-100 px-2 py-1 rounded text-sm">{{ sch.cron_expression }}</span>
+                            <span class="text-xs text-gray-500 ml-2">{{ $t('modal.schedules.config_id') }}: {{ sch.material_config_id }}</span>
+                        </div>
+                        <button @click="deleteSchedule(sch.id)" class="text-red-500 hover:text-red-700 text-sm">{{ $t('common.delete') }}</button>
+                    </div>
+                    <p v-if="currentSchedules.length === 0" class="text-gray-500 text-sm">{{ $t('modal.schedules.empty') }}</p>
+                </div>
+
+                <!-- Add Schedule Form -->
+                <div class="border-t pt-4">
+                    <h4 class="font-bold mb-2 text-sm">{{ $t('modal.schedules.add_title') }}</h4>
+                    <div class="flex gap-2 mb-2">
+                        <select v-model="newSchedule.material_config_id" class="border p-2 rounded flex-1 text-sm">
+                            <option disabled value="">{{ $t('modal.schedules.select_config') }}</option>
+                            <option v-for="m in currentMaterials" :value="m.id">{{ m.group_name }}</option>
+                        </select>
+                        <input v-model="newSchedule.cron_expression" :placeholder="$t('modal.schedules.cron_placeholder')" class="border p-2 rounded flex-1 text-sm">
+                    </div>
+                    <button @click="createSchedule" class="w-full bg-purple-600 text-white py-2 rounded hover:bg-purple-700 text-sm">{{ $t('modal.schedules.create_btn') }}</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit User Modal -->
+        <div v-if="showEditUserModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded shadow-lg w-96">
+                <h3 class="text-lg font-bold mb-4">{{ $t('admin.edit_modal.title') }}: {{ editingUser?.username }}</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold mb-1">{{ $t('admin.edit_modal.role') }}</label>
+                        <select v-model="editUserForm.role" class="w-full border p-2 rounded">
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold mb-1">{{ $t('admin.edit_modal.membership') }}</label>
+                        <select v-model="editUserForm.membership_level_code" class="w-full border p-2 rounded">
+                            <option value="normal">Normal</option>
+                            <option value="silver">Silver</option>
+                            <option value="gold">Gold</option>
+                            <option value="platinum">Platinum</option>
+                            <option value="diamond">Diamond</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold mb-1">{{ $t('admin.edit_modal.status') }}</label>
+                        <div class="flex items-center">
+                            <input type="checkbox" v-model="editUserForm.is_active" class="mr-2">
+                            <span>Active</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button @click="showEditUserModal = false" class="text-gray-500 hover:text-gray-700 px-4 py-2">{{ $t('common.cancel') }}</button>
+                    <button @click="saveUser" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">{{ $t('admin.edit_modal.save') }}</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upgrade Modal -->
+        <div v-if="showUpgradeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded shadow-lg w-96 text-center">
+                <h3 class="text-lg font-bold mb-4">{{ $t('modal.upgrade.title') }}</h3>
+                <p class="text-sm text-gray-600 mb-4">{{ $t('modal.upgrade.instruction', { level: upgradeLevelName }) }}</p>
+                <div class="flex justify-center mb-6">
+                    <img src="https://placehold.co/200x200?text=WeChat+QR" alt="WeChat QR Code" class="w-48 h-48 object-cover border">
+                </div>
+                <button @click="showUpgradeModal = false" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full">{{ $t('modal.upgrade.close') }}</button>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <transition name="fade">
+            <div v-if="showToast" class="fixed bottom-5 right-5 bg-gray-800 text-white px-6 py-3 rounded shadow-lg flex items-center gap-3 z-50">
+                <i class="fa-solid fa-check-circle text-green-400"></i>
+                <span>{{ toastMessage }}</span>
+            </div>
+        </transition>
+    </div>
+
+    <style>
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.5s;
+        }
+        .fade-enter-from, .fade-leave-to {
+            opacity: 0;
+        }
+    </style>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

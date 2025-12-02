@@ -53,6 +53,23 @@ def _normalize_proxy_url(proxy: Optional[str]) -> Optional[str]:
     return p
 
 
+def _is_process_running_win(process_name: str) -> bool:
+    """在 Windows 上检查指定进程是否运行。
+
+    通过调用 `tasklist` 判断是否存在给定名称的进程（大小写不敏感）。
+    仅在 Windows 环境下有效，其他平台返回 False。
+    """
+    try:
+        if os.name != "nt":
+            return False
+        import subprocess
+        p = subprocess.run(["tasklist"], capture_output=True, text=True)
+        out = (p.stdout or "") + (p.stderr or "")
+        return process_name.lower() in out.lower()
+    except Exception:
+        return False
+
+
 def download_single_video(output_dir: str, video_url: str, settings: Optional[YTDLPSettings] = None) -> Optional[str]:
     """下载单个视频到指定输出目录。
 
@@ -117,18 +134,24 @@ def main(argv: Optional[List[str]] = None) -> int:
     - --url 视频链接（可选，与 --channel 互斥）
     - --channel 频道 ID/Handle/URL（可选，与 --url 互斥）
     - --proxy 为所有请求设置统一代理（如 127.0.0.1:7897 或 http://127.0.0.1:7897；不写协议默认 http）
+    - --cookies-from-browser 从浏览器提取 Cookies（如 chrome/edge/firefox）
+    - --cookies 指定 Cookies 文件路径（如 cookies.txt）
     - 默认代理：未提供 --proxy 时，使用 127.0.0.1:7897
+    - Windows 默认：未显式提供 Cookies 参数时，自动从系统 Chrome 读取 Cookies
 
     返回：
     - 进程退出码，0 表示成功，非 0 表示失败。
     """
     import argparse
+    import platform
 
     parser = argparse.ArgumentParser(description="YouTube downloader wrapper (single or channel)")
     parser.add_argument("--output-dir", required=True, help="输出目录")
     parser.add_argument("--url", required=False, help="YouTube 视频链接（与 --channel 互斥）")
     parser.add_argument("--channel", required=False, help="YouTube 频道 ID/Handle/URL（与 --url 互斥）")
     parser.add_argument("--proxy", required=False, help="统一代理（如 127.0.0.1:7897 或 http://127.0.0.1:7897；不写协议默认 http)")
+    parser.add_argument("--cookies-from-browser", dest="cookies_from_browser", required=False, help="从浏览器提取 Cookies（例如 chrome/edge/firefox）")
+    parser.add_argument("--cookies", dest="cookies", required=False, help="Cookies 文件路径（cookies.txt）")
 
     args = parser.parse_args(argv)
 
@@ -156,6 +179,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             os.environ["HTTPS_PROXY"] = proxy
             os.environ["https_proxy"] = proxy
 
+        # Windows 自动优化：未显式提供 cookies/cookies-from-browser 时，默认从系统 Chrome 读取
+        if platform.system() == "Windows" and not getattr(args, "cookies", None) and not getattr(args, "cookies_from_browser", None):
+            args.cookies_from_browser = "chrome"
+            if _is_process_running_win("chrome.exe"):
+                print("提示：检测到 Chrome 正在运行，可能导致 Cookies 数据库无法复制。请关闭 Chrome（包括后台进程）或使用 --cookies 指定 cookies.txt，或改用 --cookies-from-browser edge。", file=sys.stderr)
+
         # 将代理与提取器参数传入设置：
         # - 默认强制使用 android 客户端，规避 SABR 与 nsig 警告
         # - 默认将视频转码为 mp4，提升兼容性
@@ -164,17 +193,42 @@ def main(argv: Optional[List[str]] = None) -> int:
             extractor_args={"youtube": {"player_client": "android"}},
             no_warnings=True,
             recode_video="mp4",
+            cookiefile=getattr(args, "cookies", None),
+            cookies_from_browser=getattr(args, "cookies_from_browser", None),
             # 更保守的格式优先表达式（尽量选择 mp4/m4a），如需更激进可调整
             format="bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
         )  # 可按需扩展更多命令行参数
-        if url:
-            fp = download_single_video(output_dir=output_dir, video_url=url, settings=settings)
-            print("Downloaded:", fp)
-        else:
-            result = download_channel(output_dir=output_dir, channel_identifier=channel, settings=settings)  # type: ignore[arg-type]
-            print("Downloaded videos:", len(result.get("videos", [])))
-            print("Downloaded shorts:", len(result.get("shorts", [])))
-        return 0
+        
+        def _attempt_download(cur_settings: YTDLPSettings) -> bool:
+            """尝试执行下载，返回是否成功。"""
+            if url:
+                fp = download_single_video(output_dir=output_dir, video_url=url, settings=cur_settings)
+                print("Downloaded:", fp)
+                return True
+            else:
+                result = download_channel(output_dir=output_dir, channel_identifier=channel, settings=cur_settings)  # type: ignore[arg-type]
+                print("Downloaded videos:", len(result.get("videos", [])))
+                print("Downloaded shorts:", len(result.get("shorts", [])))
+                return True
+
+        try:
+            if _attempt_download(settings):
+                return 0
+        except Exception as e1:
+            err_msg = str(e1)
+            # 针对 Chrome Cookies 复制失败的兜底方案：尝试改用 Edge 重试一次
+            if platform.system() == "Windows" and (getattr(args, "cookies_from_browser", None) == "chrome") and not getattr(args, "cookies", None) and (
+                "Could not copy Chrome cookie database" in err_msg or "failed to load cookies" in err_msg
+            ):
+                print("提示：Chrome Cookies 读取失败，尝试改用 Edge Cookies 重试……", file=sys.stderr)
+                settings.cookies_from_browser = "edge"
+                try:
+                    if _attempt_download(settings):
+                        return 0
+                except Exception as e2:
+                    print(f"重试失败：{e2}", file=sys.stderr)
+            # 原始异常抛出至外层处理
+            raise
     except Exception as e:
         print(f"下载失败：{e}", file=sys.stderr)
         return 1
