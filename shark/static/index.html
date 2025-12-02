@@ -585,23 +585,8 @@
                     <button @click="showMaterialsModal = false" class="text-gray-500"><i class="fa-solid fa-times"></i></button>
                 </div>
                 
-                <!-- List Materials -->
-                <div class="space-y-4 mb-6">
-                    <div v-for="mat in currentMaterials" :key="mat.id" class="border p-4 rounded bg-gray-50 relative group">
-                        <div class="flex justify-between">
-                            <h4 class="font-bold">{{ mat.group_name }} <span class="text-xs bg-gray-200 px-2 py-1 rounded ml-2">{{ mat.material_type }}</span></h4>
-                            <button @click="deleteMaterial(mat.id)" class="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                        </div>
-                        <p class="text-sm text-gray-600 mt-1">{{ $t('modal.materials.title_template') }}: {{ mat.title_template }}</p>
-                        <p class="text-sm text-gray-600">{{ $t('modal.materials.tags') }}: {{ mat.tags }}</p>
-                    </div>
-                    <p v-if="currentMaterials.length === 0" class="text-gray-500 text-sm">{{ $t('modal.materials.empty') }}</p>
-                </div>
-
                 <!-- Add Material Form -->
-                <div class="border-t pt-4">
+                <div class="pt-4">
                     <h4 class="font-bold mb-2 text-sm">{{ $t('modal.materials.add_title') }}</h4>
                     <div class="grid grid-cols-2 gap-4 mb-2">
                         <input v-model="newMaterial.group_name" :placeholder="$t('modal.materials.group_placeholder')" class="border p-2 rounded text-sm">
@@ -781,6 +766,6 @@
         }
     </style>
 
-    <script type="module" src="/static/js/app.js?v=1.9"></script>
+    <script type="module" src="/static/js/app.js?v=1.11"></script>
 </body>
 </html>

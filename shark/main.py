@@ -49,36 +49,36 @@ def seed_data():
                 "name": "Silver",
                 "level_code": MembershipType.SILVER,
                 "price_monthly": 9.9,
-                "max_youtube_accounts": 1,
-                "ftp_storage_mb": 256,
-                "ftp_speed_kbps": 128,
+                "max_youtube_accounts": 3,
+                "ftp_storage_mb": 1024,
+                "ftp_speed_kbps": 512,
                 "description": "Experience Entry Level"
             },
             {
                 "name": "Gold",
                 "level_code": MembershipType.GOLD,
                 "price_monthly": 19.9,
-                "max_youtube_accounts": 1,
-                "ftp_storage_mb": 2048,
-                "ftp_speed_kbps": 1024, # 1 Mbps
+                "max_youtube_accounts": 10,
+                "ftp_storage_mb": 5120,
+                "ftp_speed_kbps": 2048, # 2 Mbps
                 "description": "Personal Practical Level"
             },
             {
                 "name": "Platinum",
                 "level_code": MembershipType.PLATINUM,
                 "price_monthly": 49.9,
-                "max_youtube_accounts": 3,
-                "ftp_storage_mb": 10240, # 10 GB
-                "ftp_speed_kbps": 2048, # 2 Mbps
+                "max_youtube_accounts": 50,
+                "ftp_storage_mb": 20480, # 20 GB
+                "ftp_speed_kbps": 10240, # 10 Mbps
                 "description": "Advanced Creative Level"
             },
             {
                 "name": "Diamond",
                 "level_code": MembershipType.DIAMOND,
                 "price_monthly": 99.9,
-                "max_youtube_accounts": 8,
-                "ftp_storage_mb": 30720, # 30 GB
-                "ftp_speed_kbps": 5120, # 5 Mbps
+                "max_youtube_accounts": 100,
+                "ftp_storage_mb": 102400, # 100 GB
+                "ftp_speed_kbps": 51200, # 50 Mbps
                 "description": "Small Team/Enterprise Level"
             }
         ]
@@ -89,6 +89,11 @@ def seed_data():
                 print(f"Seeding membership: {m['name']}")
                 new_m = MembershipLevel(**m)
                 db.add(new_m)
+            else:
+                # Update existing membership limits
+                exists.max_youtube_accounts = m["max_youtube_accounts"]
+                exists.ftp_storage_mb = m["ftp_storage_mb"]
+                exists.ftp_speed_kbps = m["ftp_speed_kbps"]
         db.commit()
 
         # Seed Admin User

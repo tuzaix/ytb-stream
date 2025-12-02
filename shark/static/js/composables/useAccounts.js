@@ -40,7 +40,7 @@ export function useAccounts(t, showToastMessage) {
         }
 
         const formData = new FormData();
-        formData.append('account_name', newAccountName.value);
+        formData.append('desired_username', newAccountName.value);
         formData.append('client_secret_file', newAccountClientSecret.value);
         formData.append('token_file', newAccountToken.value);
 

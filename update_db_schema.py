@@ -19,5 +19,12 @@ def update_schema():
         except Exception as e:
             print(f"Column token_content might already exist: {e}")
 
+        try:
+            # membership_expire_at
+            conn.execute(text("ALTER TABLE users ADD COLUMN membership_expire_at DATETIME"))
+            print("Added column: membership_expire_at")
+        except Exception as e:
+            print(f"Column membership_expire_at might already exist: {e}")
+
 if __name__ == "__main__":
     update_schema()

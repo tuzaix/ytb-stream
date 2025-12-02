@@ -24,12 +24,6 @@ export function useMaterials(t, showToastMessage, fetchAccountSchedulesCallback)
     const openMaterials = async (acc) => {
          selectedAccount.value = acc;
          showMaterialsModal.value = true;
-         try {
-             const res = await api.get(`/youtube/accounts/${acc.id}/materials?skip=0&limit=100`);
-             currentMaterials.value = res.data.items;
-        } catch (e) {
-            console.error(e);
-        }
     };
 
     const createMaterial = async (currentAccountId) => {
@@ -64,10 +58,6 @@ export function useMaterials(t, showToastMessage, fetchAccountSchedulesCallback)
             // Refresh lists
             if (currentAccountId) {
                 await fetchAccountMaterials(currentAccountId);
-            }
-            if (selectedAccount.value) {
-                 const res = await api.get(`/youtube/accounts/${selectedAccount.value.id}/materials?skip=0&limit=100`);
-                 currentMaterials.value = res.data.items;
             }
             showToastMessage(t('alerts.delete_success'));
         } catch (e) {
