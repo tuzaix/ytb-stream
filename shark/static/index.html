@@ -288,18 +288,16 @@
                              <table class="min-w-full leading-normal mb-4">
                                 <thead>
                                     <tr>
-                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.schedules_table.id') }}</th>
-                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.schedules_table.cron') }}</th>
                                         <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.schedules_table.config_id') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.schedules_table.cron') }}</th>
                                         <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.schedules_table.active') }}</th>
                                         <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.schedules_table.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-for="s in schedulesData.items" :key="s.id">
-                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ s.id }}</td>
-                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm font-mono">{{ formatCron(s.cron_expression) }}</td>
                                         <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ s.material_config_id }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm font-mono">{{ formatCron(s) }}</td>
                                         <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                                              <span :class="['px-2 py-1 text-xs rounded font-bold', s.is_active ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800']">{{ s.is_active ? $t('account_details.yes') : $t('account_details.no') }}</span>
                                         </td>
@@ -310,7 +308,7 @@
                                         </td>
                                     </tr>
                                      <tr v-if="schedulesData.items.length === 0">
-                                        <td colspan="5" class="px-5 py-5 text-center text-gray-500">{{ $t('modal.schedules.empty') }}</td>
+                                        <td colspan="4" class="px-5 py-5 text-center text-gray-500">{{ $t('modal.schedules.empty') }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -654,6 +652,6 @@
         }
     </style>
 
-    <script src="/static/js/app.js?v=1.3"></script>
+    <script src="/static/js/app.js?v=1.4"></script>
 </body>
 </html>

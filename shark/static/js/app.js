@@ -85,9 +85,8 @@ const messages = {
                 desc_prefix: 'Desc:'
             },
             schedules_table: {
-                id: 'ID',
-                cron: 'Cron',
-                config_id: 'Material Config ID',
+                cron: 'Schedule',
+                config_id: 'Config ID',
                 active: 'Active',
                 actions: 'Actions'
             }
@@ -258,8 +257,7 @@ const messages = {
                 desc_prefix: '描述:'
             },
             schedules_table: {
-                id: 'ID',
-                cron: 'Cron',
+                cron: '发布时间',
                 config_id: '配置 ID',
                 active: '激活',
                 actions: '操作'
