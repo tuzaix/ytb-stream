@@ -242,14 +242,18 @@ def delete_material_config(
     if not material:
         raise HTTPException(status_code=404, detail="Material config not found")
     
-    # Check if any schedules depend on this material
-    linked_schedules = db.query(UploadSchedule).filter(UploadSchedule.material_config_id == material.id).count()
-    if linked_schedules > 0:
-         raise HTTPException(status_code=400, detail="Cannot delete material config used by existing schedules. Please delete the schedules first.")
+    # Cascade delete linked schedules
+    linked_schedules = db.query(UploadSchedule).filter(UploadSchedule.material_config_id == material.id).all()
+    for schedule in linked_schedules:
+        try:
+            scheduler_service.remove_job(schedule.id)
+        except Exception:
+            pass # Ignore if job doesn't exist in scheduler
+        db.delete(schedule)
 
     db.delete(material)
     db.commit()
-    return {"detail": "Material config deleted"}
+    return {"detail": "Material config and associated schedules deleted"}
 
 # --- Schedules ---
 

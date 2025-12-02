@@ -168,7 +168,7 @@ const messages = {
             delete_failed: 'Failed to delete',
             confirm_upgrade: 'Upgrade to {level}?',
             confirm_delete: 'Delete this schedule?',
-            delete_material_confirm: 'Are you sure you want to delete this material config? This action cannot be undone.',
+            delete_material_confirm: 'Are you sure you want to delete this material config? This will also delete all associated schedules. This action cannot be undone.',
             delete_account_confirm_msg: 'Are you sure you want to delete account {name}? This action cannot be undone.',
             delete_success: 'Deleted successfully',
             add_success: 'Added successfully'
@@ -340,7 +340,7 @@ const messages = {
             delete_failed: '删除失败',
             confirm_upgrade: '确定升级到 {level} 吗？',
             confirm_delete: '确定删除该计划吗？',
-            delete_material_confirm: '确定要删除此素材配置吗？此操作无法撤销。',
+            delete_material_confirm: '确定要删除此素材配置吗？此操作将同时删除所有关联的发布计划，且无法撤销。',
             delete_account_confirm_msg: '您确定要删除账号 {name} 吗？此操作无法撤销。',
             delete_success: '删除成功',
             add_success: '添加成功'
