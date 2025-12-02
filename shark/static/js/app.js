@@ -80,6 +80,7 @@ const messages = {
                 type: 'Type',
                 templates: 'Templates',
                 active: 'Active',
+                actions: 'Actions',
                 title_prefix: 'Title:',
                 desc_prefix: 'Desc:'
             },
@@ -168,8 +169,10 @@ const messages = {
             delete_failed: 'Failed to delete',
             confirm_upgrade: 'Upgrade to {level}?',
             confirm_delete: 'Delete this schedule?',
+            delete_material_confirm: 'Are you sure you want to delete this material config? This action cannot be undone.',
             delete_account_confirm_msg: 'Are you sure you want to delete account {name}? This action cannot be undone.',
-            delete_success: 'Account deleted successfully'
+            delete_success: 'Deleted successfully',
+            add_success: 'Added successfully'
         }
     },
     zh: {
@@ -250,6 +253,7 @@ const messages = {
                 type: '类型',
                 templates: '模板',
                 active: '激活',
+                actions: '操作',
                 title_prefix: '标题:',
                 desc_prefix: '描述:'
             },
@@ -338,8 +342,10 @@ const messages = {
             delete_failed: '删除失败',
             confirm_upgrade: '确定升级到 {level} 吗？',
             confirm_delete: '确定删除该计划吗？',
+            delete_material_confirm: '确定要删除此素材配置吗？此操作无法撤销。',
             delete_account_confirm_msg: '您确定要删除账号 {name} 吗？此操作无法撤销。',
-            delete_success: '账号删除成功'
+            delete_success: '删除成功',
+            add_success: '添加成功'
         },
         admin: {
             title: '管理员后台',
@@ -671,11 +677,38 @@ createApp({
             if (!selectedAccount.value) return;
             try {
                 await api.post(`/youtube/accounts/${selectedAccount.value.id}/materials`, newMaterial.value);
+                
+                // Refresh modal list
                 const res = await api.get(`/youtube/accounts/${selectedAccount.value.id}/materials?skip=0&limit=100`);
                 currentMaterials.value = res.data.items;
+
+                // Refresh account details list if applicable
+                if (currentAccount.value && currentAccount.value.id === selectedAccount.value.id) {
+                    await fetchAccountMaterials();
+                }
+
                 newMaterial.value = { group_name: '', material_type: 'shorts', title_template: '', description_template: '', tags: '' };
+                showToastMessage(t('alerts.add_success') || 'Material added successfully');
             } catch (e) {
                 alert(e.response?.data?.detail || t('alerts.add_material_failed'));
+            }
+        };
+
+        const deleteMaterial = async (id) => {
+            if (!confirm(t('alerts.delete_material_confirm') || 'Are you sure you want to delete this material?')) return;
+            try {
+                await api.delete(`/youtube/materials/${id}`);
+                // Refresh lists
+                if (currentAccount.value) {
+                    await fetchAccountMaterials();
+                }
+                if (selectedAccount.value) {
+                     const res = await api.get(`/youtube/accounts/${selectedAccount.value.id}/materials?skip=0&limit=100`);
+                     currentMaterials.value = res.data.items;
+                }
+                showToastMessage(t('alerts.delete_success'));
+            } catch (e) {
+                alert(e.response?.data?.detail || t('alerts.delete_failed'));
             }
         };
 
@@ -889,6 +922,7 @@ createApp({
 
                 // Reset form?
                 showSchedulesModal.value = false;
+                showToastMessage(t('alerts.add_success') || 'Added successfully');
             } catch (e) {
                 alert(e.response?.data?.detail || t('alerts.create_schedule_failed'));
             }
@@ -908,6 +942,7 @@ createApp({
                     const res = await api.get(`/youtube/accounts/${accId}/schedules?skip=0&limit=100`);
                     currentSchedules.value = res.data.items;
                 }
+                showToastMessage(t('alerts.delete_success') || 'Deleted successfully');
             } catch (e) {
                 alert(e.response?.data?.detail || t('alerts.delete_failed'));
             }
@@ -970,7 +1005,7 @@ createApp({
             showAccountSuccessModal, createdAccountInfo,
             showUpdateAuthModal, updateAuthClientSecret, updateAuthToken, handleUpdateAuthClientSecretUpload, handleUpdateAuthTokenUpload, openUpdateAuth, updateAuth, copyToClipboard, copyFtpInfo,
             showToast, toastMessage,
-            showMaterialsModal, selectedAccount, currentMaterials, newMaterial, openMaterials, createMaterial,
+            showMaterialsModal, selectedAccount, currentMaterials, newMaterial, openMaterials, createMaterial, deleteMaterial,
             showSchedulesModal, currentSchedules, newSchedule, openSchedules, createSchedule, deleteSchedule, deleteAccount, deletingAccountIds,
             scheduleForm, generateCron, formatCron, weekdaysOptions,
             // Account Details

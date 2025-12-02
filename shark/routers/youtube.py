@@ -227,6 +227,30 @@ def list_materials(
     
     return {"total": total, "items": items}
 
+@router.delete("/materials/{material_id}")
+def delete_material_config(
+    material_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Verify ownership via join
+    material = db.query(MaterialConfig).join(YoutubeAccount).filter(
+        MaterialConfig.id == material_id, 
+        YoutubeAccount.user_id == current_user.id
+    ).first()
+    
+    if not material:
+        raise HTTPException(status_code=404, detail="Material config not found")
+    
+    # Check if any schedules depend on this material
+    linked_schedules = db.query(UploadSchedule).filter(UploadSchedule.material_config_id == material.id).count()
+    if linked_schedules > 0:
+         raise HTTPException(status_code=400, detail="Cannot delete material config used by existing schedules. Please delete the schedules first.")
+
+    db.delete(material)
+    db.commit()
+    return {"detail": "Material config deleted"}
+
 # --- Schedules ---
 
 @router.post("/accounts/{account_id}/schedules", response_model=ScheduleOut)
