@@ -56,7 +56,16 @@
                         <p class="text-xs text-gray-500 mt-1">{{ $t('auth.2fa_instruction') }}</p>
                     </div>
 
-                    <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+                    <div v-if="is2FARequired" class="flex gap-2">
+                         <button type="button" @click="is2FARequired = false; authForm.totp_code = ''" class="flex-1 bg-gray-500 text-white py-2 rounded hover:bg-gray-600">
+                            {{ $t('common.cancel') }}
+                        </button>
+                        <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+                            {{ $t('auth.verify_btn') }}
+                        </button>
+                    </div>
+
+                    <button v-else type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
                         {{ authMode === 'login' ? $t('auth.sign_in') : $t('auth.create_account') }}
                     </button>
                 </form>
@@ -764,6 +773,6 @@
         }
     </style>
 
-    <script type="module" src="/static/js/app.js?v=1.5"></script>
+    <script type="module" src="/static/js/app.js?v=1.6"></script>
 </body>
 </html>

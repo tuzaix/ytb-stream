@@ -14,7 +14,8 @@ export const messages = {
             failed: 'Authentication failed',
             '2fa_code': '2FA Code',
             '2fa_required_msg': 'Two-Factor Authentication is enabled for this account.',
-            '2fa_instruction': 'Please enter the 6-digit code from your authenticator app.'
+            '2fa_instruction': 'Please enter the 6-digit code from your authenticator app.',
+            verify_btn: 'Verify'
         },
         nav: {
             dashboard: 'Dashboard',
@@ -219,7 +220,8 @@ export const messages = {
             failed: '认证失败',
             '2fa_code': '2FA 验证码',
             '2fa_required_msg': '此账户已启用双重认证。',
-            '2fa_instruction': '请输入身份验证器应用中的 6 位验证码。'
+            '2fa_instruction': '请输入身份验证器应用中的 6 位验证码。',
+            verify_btn: '验证'
         },
         nav: {
             dashboard: '仪表盘',
