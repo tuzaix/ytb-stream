@@ -78,6 +78,19 @@ export const messages = {
             platinum: { name: 'Platinum', description: 'Advanced Creative Level' },
             diamond: { name: 'Diamond', description: 'Small Team/Enterprise Level' }
         },
+        admin: {
+            title: 'Admin Panel',
+            users_title: 'User Management',
+            table: {
+                id: 'ID',
+                username: 'Username',
+                email: 'Email',
+                role: 'Role',
+                membership: 'Membership',
+                status: 'Status',
+                actions: 'Actions'
+            }
+        },
         accounts: {
             title: 'YouTube Accounts',
             add_btn: 'Add Account',
@@ -283,6 +296,19 @@ export const messages = {
             gold: { name: '黄金会员', description: '个人实用级' },
             platinum: { name: '白金会员', description: '进阶创作级' },
             diamond: { name: '钻石会员', description: '小型团队/企业级' }
+        },
+        admin: {
+            title: '管理后台',
+            users_title: '用户管理',
+            table: {
+                id: 'ID',
+                username: '用户名',
+                email: '邮箱',
+                role: '角色',
+                membership: '会员等级',
+                status: '状态',
+                actions: '操作'
+            }
         },
         accounts: {
             title: 'YouTube 账号',

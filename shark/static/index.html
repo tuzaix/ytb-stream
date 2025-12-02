@@ -390,6 +390,19 @@
                             <div class="bg-white p-6 rounded-lg shadow">
                                 <h3 class="text-lg font-bold mb-4 border-b pb-2">{{ $t('profile.2fa_settings') }}</h3>
                                 
+                                <!-- Status Indicator -->
+                                <div class="flex items-center justify-between bg-gray-50 p-3 rounded mb-4 border">
+                                    <span class="font-medium text-gray-700">{{ $t('profile.status') }}</span>
+                                    <div v-if="is2faEnabled" class="flex items-center text-green-600 font-bold">
+                                        <i class="fa-solid fa-shield-check mr-2"></i>
+                                        <span>{{ $t('profile.enabled') }}</span>
+                                    </div>
+                                    <div v-else class="flex items-center text-gray-500 font-bold">
+                                        <i class="fa-solid fa-shield mr-2"></i>
+                                        <span>{{ $t('profile.disabled') }}</span>
+                                    </div>
+                                </div>
+
                                 <div v-if="!is2faEnabled && !setupData">
                                     <p class="text-gray-600 mb-4">{{ $t('profile.2fa_disabled_desc') }}</p>
                                     <button @click="setup2FA" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full">
@@ -420,11 +433,6 @@
                                 </div>
 
                                 <div v-if="is2faEnabled">
-                                    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4 flex items-center">
-                                        <i class="fa-solid fa-shield-check mr-2 text-xl"></i>
-                                        <span>{{ $t('profile.enabled') }}</span>
-                                    </div>
-                                    
                                     <div v-if="!showDisableConfirm">
                                         <button @click="showDisableConfirm = true" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 w-full">
                                             {{ $t('profile.disable_btn') }}
@@ -773,6 +781,6 @@
         }
     </style>
 
-    <script type="module" src="/static/js/app.js?v=1.6"></script>
+    <script type="module" src="/static/js/app.js?v=1.9"></script>
 </body>
 </html>
