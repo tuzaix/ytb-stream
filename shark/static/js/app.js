@@ -34,7 +34,7 @@ createApp({
 
         // Composables
         const auth = useAuth(t, setView);
-        const accounts = useAccounts(t, showToastMessage);
+        const accountModule = useAccounts(t, showToastMessage);
         const membership = useMembership();
         const admin = useAdmin();
         
@@ -49,7 +49,7 @@ createApp({
 
         // Account Details Integration
         const openAccountDetails = (acc) => {
-            accounts.currentAccount.value = acc;
+            accountModule.currentAccount.value = acc;
             setView('account_details');
             materials.selectedMaterialConfigId.value = null;
             materials.handleMaterialsPageSizeChange(acc.id); // Reset page and fetch
@@ -57,7 +57,7 @@ createApp({
         };
 
         const goBackToAccounts = () => {
-            accounts.currentAccount.value = null;
+            accountModule.currentAccount.value = null;
             setView('accounts');
         };
 
@@ -69,47 +69,55 @@ createApp({
                 materials.selectedMaterialConfigId.value = configId;
             }
             // Reset schedule page and fetch with filter
-            schedules.handleSchedulesPageSizeChange(accounts.currentAccount.value.id, materials.selectedMaterialConfigId.value);
+            schedules.handleSchedulesPageSizeChange(accountModule.currentAccount.value.id, materials.selectedMaterialConfigId.value);
         };
 
         // Wrappers for Create/Delete to pass current context
-        const createMaterialWrapper = () => materials.createMaterial(accounts.currentAccount.value?.id);
-        const deleteMaterialWrapper = (id) => materials.deleteMaterial(id, accounts.currentAccount.value?.id);
+        const createMaterialWrapper = () => materials.createMaterial(accountModule.currentAccount.value?.id);
+        const deleteMaterialWrapper = (id) => materials.deleteMaterial(id, accountModule.currentAccount.value?.id);
         
         const createScheduleWrapper = async () => {
              const success = await schedules.createSchedule(
-                accounts.currentAccount.value?.id, 
+                accountModule.currentAccount.value?.id, 
                 currentView.value
             );
             if (success && currentView.value === 'account_details') {
-                schedules.fetchAccountSchedules(accounts.currentAccount.value.id, materials.selectedMaterialConfigId.value);
+                schedules.fetchAccountSchedules(accountModule.currentAccount.value.id, materials.selectedMaterialConfigId.value);
             }
         };
 
         const deleteScheduleWrapper = async (id) => {
             const success = await schedules.deleteSchedule(
                 id,
-                accounts.currentAccount.value?.id,
+                accountModule.currentAccount.value?.id,
                 currentView.value
             );
              if (success && currentView.value === 'account_details') {
-                schedules.fetchAccountSchedules(accounts.currentAccount.value.id, materials.selectedMaterialConfigId.value);
+                schedules.fetchAccountSchedules(accountModule.currentAccount.value.id, materials.selectedMaterialConfigId.value);
             }
         };
         
         // Pagination wrappers
-        const onMaterialsPageChange = (p) => materials.handleMaterialsPageChange(p, accounts.currentAccount.value?.id);
-        const onSchedulesPageChange = (p) => schedules.handleSchedulesPageChange(p, accounts.currentAccount.value?.id, materials.selectedMaterialConfigId.value);
+        const onMaterialsPageChange = (p) => materials.handleMaterialsPageChange(p, accountModule.currentAccount.value?.id);
+        const onSchedulesPageChange = (p) => schedules.handleSchedulesPageChange(p, accountModule.currentAccount.value?.id, materials.selectedMaterialConfigId.value);
 
         // Init
-        onMounted(() => {
+        const loadData = async () => {
             if (auth.isLoggedIn.value) {
-                auth.fetchUser();
+                await auth.fetchUser();
                 membership.fetchMemberships();
-                accounts.fetchAccounts();
+                accountModule.fetchAccounts();
             }
-            
-            if (currentView.value === 'account_details' && !accounts.currentAccount.value) {
+        };
+
+        watch(auth.isLoggedIn, (newVal) => {
+            if (newVal) {
+                loadData();
+            }
+        }, { immediate: true });
+
+        onMounted(async () => {
+            if (currentView.value === 'account_details' && !accountModule.currentAccount.value) {
                 setView('accounts');
             }
         });
@@ -121,7 +129,7 @@ createApp({
             currentView,
             setView,
             // Accounts
-            ...accounts,
+            ...accountModule,
             openAccountDetails,
             goBackToAccounts,
             // Materials

@@ -2,8 +2,8 @@ const { ref } = Vue;
 import { api } from '../modules/api.js';
 
 export function useAuth(t, setViewCallback) {
-    const isLoggedIn = ref(false);
     const token = ref(localStorage.getItem('shark_token') || null);
+    const isLoggedIn = ref(!!token.value);
     const user = ref({});
     const authMode = ref('login'); // login or register
     const authForm = ref({ username: '', password: '', email: '' });
