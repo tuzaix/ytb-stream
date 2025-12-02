@@ -405,6 +405,7 @@ createApp({
         // Account Details Pagination State
         const materialsData = ref({ items: [], total: 0, page: 1, pageSize: 5 });
         const schedulesData = ref({ items: [], total: 0, page: 1, pageSize: 10 });
+        const selectedMaterialConfigId = ref(null);
         
         // Modals & Sub-data
         const showAddAccountModal = ref(false);
@@ -687,6 +688,7 @@ createApp({
 
                 newMaterial.value = { group_name: '', material_type: 'shorts', title_template: '', description_template: '', tags: '' };
                 showToastMessage(t('alerts.add_success') || 'Material added successfully');
+                showMaterialsModal.value = false;
             } catch (e) {
                 alert(e.response?.data?.detail || t('alerts.add_material_failed'));
             }
@@ -727,6 +729,7 @@ createApp({
         const openAccountDetails = (acc) => {
             currentAccount.value = acc;
             currentView.value = 'account_details';
+            selectedMaterialConfigId.value = null;
             fetchAccountMaterials();
             fetchAccountSchedules();
         };
@@ -752,12 +755,26 @@ createApp({
              if (!currentAccount.value) return;
             const skip = (schedulesData.value.page - 1) * schedulesData.value.pageSize;
             try {
-                const res = await api.get(`/youtube/accounts/${currentAccount.value.id}/schedules?skip=${skip}&limit=${schedulesData.value.pageSize}`);
+                let url = `/youtube/accounts/${currentAccount.value.id}/schedules?skip=${skip}&limit=${schedulesData.value.pageSize}`;
+                if (selectedMaterialConfigId.value) {
+                    url += `&material_config_id=${selectedMaterialConfigId.value}`;
+                }
+                const res = await api.get(url);
                 schedulesData.value.items = res.data.items;
                 schedulesData.value.total = res.data.total;
             } catch (e) {
                 console.error(e);
             }
+        };
+
+        const onClickMaterialGroup = (configId) => {
+            if (selectedMaterialConfigId.value === configId) {
+                selectedMaterialConfigId.value = null;
+            } else {
+                selectedMaterialConfigId.value = configId;
+            }
+            schedulesData.value.page = 1;
+            fetchAccountSchedules();
         };
 
         const handleMaterialsPageChange = (newPage) => {
@@ -1010,6 +1027,8 @@ createApp({
             currentAccount,
             materialsData,
             schedulesData,
+            selectedMaterialConfigId,
+            onClickMaterialGroup,
             openAccountDetails,
             fetchAccountMaterials,
             fetchAccountSchedules,

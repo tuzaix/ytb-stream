@@ -313,6 +313,7 @@ def list_schedules(
     account_id: int,
     skip: int = 0,
     limit: int = 10,
+    material_config_id: int = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -321,6 +322,10 @@ def list_schedules(
         raise HTTPException(status_code=404, detail="Account not found")
     
     query = db.query(UploadSchedule).filter(UploadSchedule.youtube_account_id == account_id)
+    
+    if material_config_id:
+        query = query.filter(UploadSchedule.material_config_id == material_config_id)
+
     total = query.count()
     items = query.order_by(UploadSchedule.created_at.desc()).offset(skip).limit(limit).all()
     

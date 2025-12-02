@@ -237,18 +237,18 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="m in materialsData.items" :key="m.id">
-                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ m.group_name }}</td>
-                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ m.material_type }}</td>
-                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                    <tr v-for="m in materialsData.items" :key="m.id" @click="onClickMaterialGroup(m.id)" :class="['cursor-pointer transition-colors', selectedMaterialConfigId === m.id ? 'bg-blue-50' : 'bg-white hover:bg-gray-50']">
+                                        <td class="px-5 py-5 border-b border-gray-200 text-sm">{{ m.group_name }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 text-sm">{{ m.material_type }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 text-sm">
                                             <div class="text-xs text-gray-500">{{ $t('account_details.materials_table.title_prefix') }} {{ m.title_template }}</div>
                                             <div class="text-xs text-gray-500">{{ $t('account_details.materials_table.desc_prefix') }} {{ m.description_template }}</div>
                                         </td>
-                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                        <td class="px-5 py-5 border-b border-gray-200 text-sm">
                                              <span :class="['px-2 py-1 text-xs rounded font-bold', m.is_active ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800']">{{ m.is_active ? $t('account_details.yes') : $t('account_details.no') }}</span>
                                         </td>
-                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                            <button @click="deleteMaterial(m.id)" class="text-red-600 hover:text-red-800">
+                                        <td class="px-5 py-5 border-b border-gray-200 text-sm">
+                                            <button @click.stop="deleteMaterial(m.id)" class="text-red-600 hover:text-red-800">
                                                 <i class="fa-solid fa-trash"></i>
                                             </button>
                                         </td>
@@ -652,6 +652,6 @@
         }
     </style>
 
-    <script src="/static/js/app.js?v=1.5"></script>
+    <script src="/static/js/app.js?v=1.6"></script>
 </body>
 </html>
