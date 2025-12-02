@@ -99,12 +99,18 @@
                     
                     <!-- Dashboard View -->
                     <div v-if="currentView === 'dashboard'">
+                        <div v-if="showExpirationWarning" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 shadow-md" role="alert">
+                            <p class="font-bold flex items-center">
+                                <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                                {{ $t('dashboard.expiration_warning', { days: expirationRemainingDays }) }}
+                            </p>
+                        </div>
                         <h2 class="text-2xl font-bold mb-6">{{ $t('dashboard.title') }}</h2>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div class="bg-white p-6 rounded-lg shadow">
                                 <h3 class="text-gray-500 text-sm font-bold uppercase">{{ $t('dashboard.current_plan') }}</h3>
                                 <p class="text-3xl font-bold text-blue-600 mt-2">{{ user.membership ? $t('membership_levels.' + user.membership.level_code + '.name') : $t('memberships.free') }}</p>
-                                <p class="text-sm text-gray-400 mt-1">{{ $t('dashboard.expires') }}</p>
+                                <p class="text-sm text-gray-400 mt-1">{{ $t('dashboard.expires') }}: {{ user.membership_expire_at ? new Date(user.membership_expire_at).toLocaleDateString() : '' }}</p>
                             </div>
                             <div class="bg-white p-6 rounded-lg shadow">
                                 <h3 class="text-gray-500 text-sm font-bold uppercase">{{ $t('dashboard.accounts_used') }}</h3>
@@ -608,6 +614,10 @@
                         </select>
                     </div>
                     <div>
+                        <label class="block text-sm font-bold mb-1">Expire At</label>
+                        <input type="datetime-local" v-model="editUserForm.membership_expire_at" class="w-full border p-2 rounded">
+                    </div>
+                    <div>
                         <label class="block text-sm font-bold mb-1">{{ $t('admin.edit_modal.status') }}</label>
                         <div class="flex items-center">
                             <input type="checkbox" v-model="editUserForm.is_active" class="mr-2">
@@ -652,6 +662,6 @@
         }
     </style>
 
-    <script type="module" src="/static/js/app.js?v=1.10"></script>
+    <script type="module" src="/static/js/app.js?v=1.4"></script>
 </body>
 </html>

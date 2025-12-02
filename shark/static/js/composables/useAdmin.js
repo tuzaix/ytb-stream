@@ -21,7 +21,8 @@ export function useAdmin() {
         editUserForm.value = {
             role: u.role,
             is_active: u.is_active,
-            membership_level_code: u.membership ? u.membership.level_code : 'normal'
+            membership_level_code: u.membership ? u.membership.level_code : 'normal',
+            membership_expire_at: u.membership_expire_at ? u.membership_expire_at.slice(0, 16) : ''
         };
         showEditUserModal.value = true;
     };

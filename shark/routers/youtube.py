@@ -9,7 +9,7 @@ from ..schemas import (
     MaterialConfigCreate, MaterialConfigOut, PaginatedMaterialConfigOut,
     ScheduleCreate, ScheduleOut, PaginatedScheduleOut
 )
-from .auth import get_current_user
+from .auth import get_current_user, get_current_active_user
 from ..services.ftp_service import ftp_service
 from ..services.scheduler_service import scheduler_service
 from ..config import config
@@ -34,7 +34,7 @@ async def create_youtube_account(
     desired_username: str = Form(...),
     client_secret_file: UploadFile = File(...),
     token_file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user), 
+    current_user: User = Depends(get_current_active_user), 
     db: Session = Depends(get_db)
 ):
     # Check membership limits
@@ -101,7 +101,7 @@ async def create_youtube_account(
     return new_account
 
 @router.get("/accounts", response_model=List[YoutubeAccountOut])
-def list_youtube_accounts(current_user: User = Depends(get_current_user)):
+def list_youtube_accounts(current_user: User = Depends(get_current_active_user)):
     accounts = current_user.youtube_accounts
     for acc in accounts:
         acc.ftp_host = config.FTP_HOST
@@ -113,7 +113,7 @@ async def update_youtube_account_auth(
     account_id: int,
     client_secret_file: UploadFile = File(...),
     token_file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     account = db.query(YoutubeAccount).filter(YoutubeAccount.id == account_id, YoutubeAccount.user_id == current_user.id).first()
@@ -151,7 +151,7 @@ async def update_youtube_account_auth(
 @router.delete("/accounts/{account_id}", status_code=204)
 def delete_youtube_account(
     account_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     account = db.query(YoutubeAccount).filter(YoutubeAccount.id == account_id, YoutubeAccount.user_id == current_user.id).first()
@@ -188,7 +188,7 @@ def delete_youtube_account(
 def create_material_config(
     account_id: int,
     config_in: MaterialConfigCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     account = db.query(YoutubeAccount).filter(YoutubeAccount.id == account_id, YoutubeAccount.user_id == current_user.id).first()
@@ -214,7 +214,7 @@ def list_materials(
     account_id: int,
     skip: int = 0,
     limit: int = 5,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     account = db.query(YoutubeAccount).filter(YoutubeAccount.id == account_id, YoutubeAccount.user_id == current_user.id).first()
@@ -230,7 +230,7 @@ def list_materials(
 @router.delete("/materials/{material_id}")
 def delete_material_config(
     material_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     # Verify ownership via join
@@ -261,7 +261,7 @@ def delete_material_config(
 def create_schedule(
     account_id: int,
     schedule_in: ScheduleCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     account = db.query(YoutubeAccount).filter(YoutubeAccount.id == account_id, YoutubeAccount.user_id == current_user.id).first()
@@ -314,7 +314,7 @@ def list_schedules(
     skip: int = 0,
     limit: int = 10,
     material_config_id: int = None,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     account = db.query(YoutubeAccount).filter(YoutubeAccount.id == account_id, YoutubeAccount.user_id == current_user.id).first()
@@ -334,7 +334,7 @@ def list_schedules(
 @router.delete("/schedules/{schedule_id}")
 def delete_schedule(
     schedule_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     schedule = db.query(UploadSchedule).join(YoutubeAccount).filter(UploadSchedule.id == schedule_id, YoutubeAccount.user_id == current_user.id).first()

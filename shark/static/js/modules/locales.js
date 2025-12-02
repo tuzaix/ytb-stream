@@ -22,9 +22,10 @@ export const messages = {
         dashboard: {
             title: 'Dashboard Overview',
             current_plan: 'Current Plan',
-            expires: 'Expires: Lifetime',
+            expires: 'Expires',
             accounts_used: 'Accounts Used',
-            ftp_storage: 'FTP Storage'
+            ftp_storage: 'FTP Storage',
+            expiration_warning: 'Your membership will expire in {days} days. Please contact the administrator to renew.'
         },
         memberships: {
             title: 'Membership Plans',
@@ -168,7 +169,8 @@ export const messages = {
             delete_material_confirm: 'Are you sure you want to delete this material config? This will also delete all associated schedules. This action cannot be undone.',
             delete_account_confirm_msg: 'Are you sure you want to delete account {name}? This action cannot be undone.',
             delete_success: 'Deleted successfully',
-            add_success: 'Added successfully'
+            add_success: 'Added successfully',
+            access_denied: 'Access denied or membership expired'
         }
     },
     zh: {
@@ -194,9 +196,10 @@ export const messages = {
         dashboard: {
             title: '仪表盘概览',
             current_plan: '当前计划',
-            expires: '有效期：终身',
+            expires: '有效期',
             accounts_used: '已用账号',
-            ftp_storage: 'FTP 存储'
+            ftp_storage: 'FTP 存储',
+            expiration_warning: '您的会员还有 {days} 天到期，请联系管理员续费。'
         },
         memberships: {
             title: '会员等级',
@@ -218,23 +221,23 @@ export const messages = {
             diamond: { name: '钻石会员', description: '小型团队/企业级' }
         },
         accounts: {
-            title: 'YouTube 账号管理',
+            title: 'YouTube 账号',
             add_btn: '添加账号',
             table: {
-                account_user: '账号 / FTP 用户名',
+                account_user: '账号 / FTP 用户',
                 youtube_link: 'YouTube 链接',
                 status: '状态',
                 actions: '操作'
             },
             status: {
-                active: '活跃'
+                active: '生效中'
             },
-            materials_btn: '素材配置',
-            schedules_btn: '发布计划',
-            auth_btn: '应用配置',
+            materials_btn: '素材库',
+            schedules_btn: '定时任务',
+            auth_btn: '认证配置',
             copy_ftp_btn: '复制 FTP 信息',
             delete_account_btn: '删除账号',
-            empty: '暂无账号，请创建一个开始使用。'
+            empty: '暂无账号，请创建一个。'
         },
         account_details: {
             show: '显示',
@@ -248,22 +251,22 @@ export const messages = {
                 group: '分组',
                 type: '类型',
                 templates: '模板',
-                active: '激活',
+                active: '状态',
                 actions: '操作',
                 title_prefix: '标题:',
                 desc_prefix: '描述:'
             },
             schedules_table: {
-                cron: '发布时间',
+                cron: '计划时间',
                 config_id: '配置 ID',
-                active: '激活',
+                active: '状态',
                 actions: '操作'
             }
         },
         cron_builder: {
-            type_label: '调度类型',
+            type_label: '计划类型',
             types: {
-                interval: '每隔...',
+                interval: '每隔 X 时间',
                 daily: '每天',
                 weekly: '每周',
                 monthly: '每月'
@@ -276,15 +279,15 @@ export const messages = {
             time_label: '执行时间',
             weekdays_label: '选择星期',
             month_day_label: '选择日期',
-            preview: '定时执行:',
+            preview: '计划预览:',
             weekdays_items: {
-                mon: '周一',
-                tue: '周二',
-                wed: '周三',
-                thu: '周四',
-                fri: '周五',
-                sat: '周六',
-                sun: '周日'
+                mon: '一',
+                tue: '二',
+                wed: '三',
+                thu: '四',
+                fri: '五',
+                sat: '六',
+                sun: '日'
             }
         },
         modal: {
@@ -293,13 +296,13 @@ export const messages = {
                 placeholder: '期望的用户名'
             },
             update_auth: {
-                title: '{name} 的应用配置更新',
+                title: '更新认证配置 - {name}',
                 btn: '更新配置'
             },
             materials: {
-                title: '{name} 的素材配置',
+                title: '素材管理 - {name}',
                 add_title: '添加新素材配置',
-                group_placeholder: '分组名称 (例如：时尚)',
+                group_placeholder: '分组名称 (如: 时尚)',
                 desc_placeholder: '描述模板',
                 tags_placeholder: '标签 (逗号分隔)',
                 title_template: '标题模板',
@@ -307,17 +310,17 @@ export const messages = {
                 empty: '暂无素材配置。'
             },
             schedules: {
-                title: '{name} 的发布计划',
-                add_title: '添加计划',
+                title: '任务计划 - {name}',
+                add_title: '添加任务',
                 select_config: '选择素材配置',
-                cron_placeholder: 'Cron 表达式 (例如 */30 * * * *)',
-                create_btn: '创建计划',
-                empty: '暂无活跃计划。',
+                cron_placeholder: 'Cron 表达式 (如: */30 * * * *)',
+                create_btn: '创建任务',
+                empty: '暂无活动任务。',
                 config_id: '配置 ID'
             },
             upgrade: {
                 title: '联系客服升级',
-                instruction: '请扫描下方二维码添加客服微信，升级至 {level}。',
+                instruction: '请扫描下方二维码联系客服升级至 {level}。',
                 close: '关闭'
             }
         },
@@ -325,42 +328,23 @@ export const messages = {
             cancel: '取消',
             create: '创建',
             delete: '删除',
-            shorts: '短视频 (Shorts)',
-            long: '长视频 (Long)'
+            shorts: 'Shorts',
+            long: '长视频'
         },
         alerts: {
             membership_upgraded: '会员升级成功！',
             purchase_failed: '购买失败',
             create_account_failed: '创建账号失败',
             add_material_failed: '添加素材失败',
-            create_schedule_failed: '创建计划失败',
+            create_schedule_failed: '创建任务失败',
             delete_failed: '删除失败',
-            confirm_upgrade: '确定升级到 {level} 吗？',
-            confirm_delete: '确定删除该计划吗？',
-            delete_material_confirm: '确定要删除此素材配置吗？此操作将同时删除所有关联的发布计划，且无法撤销。',
-            delete_account_confirm_msg: '您确定要删除账号 {name} 吗？此操作无法撤销。',
+            confirm_upgrade: '确认升级至 {level}？',
+            confirm_delete: '删除此任务？',
+            delete_material_confirm: '确定要删除此素材配置吗？这将同时删除所有关联的任务。此操作不可撤销。',
+            delete_account_confirm_msg: '确定要删除账号 {name} 吗？此操作不可撤销。',
             delete_success: '删除成功',
-            add_success: '添加成功'
-        },
-        admin: {
-            title: '管理员后台',
-            users_title: '用户管理',
-            table: {
-                id: 'ID',
-                username: '用户名',
-                email: '邮箱',
-                role: '角色',
-                membership: '会员等级',
-                status: '状态',
-                actions: '操作'
-            },
-            edit_modal: {
-                title: '编辑用户',
-                role: '角色',
-                status: '激活状态',
-                membership: '会员等级',
-                save: '保存更改'
-            }
+            add_success: '添加成功',
+            access_denied: '访问被拒绝或会员已过期'
         }
     }
 };

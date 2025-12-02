@@ -1,4 +1,4 @@
-import { i18n } from './modules/i18n.js';
+import { i18n } from './modules/i18n.js?v=1.2';
 import { setupApiInterceptors } from './modules/api.js';
 import { useAuth } from './composables/useAuth.js';
 import { useAccounts } from './composables/useAccounts.js';
@@ -39,7 +39,11 @@ createApp({
         const admin = useAdmin();
         
         // Setup API Interceptors
-        setupApiInterceptors(auth.token, auth.logout);
+        setupApiInterceptors(auth.token, auth.logout, (msg) => {
+             showToastMessage(msg || t('alerts.access_denied'));
+             // Optionally redirect to membership page if expired?
+             // setView('memberships'); 
+        });
 
         // Materials
         const materials = useMaterials(t, showToastMessage);
@@ -122,9 +126,33 @@ createApp({
             }
         });
 
+        const showExpirationWarning = computed(() => {
+            if (!auth.user.value || !auth.user.value.membership_expire_at) return false;
+            const expireDate = new Date(auth.user.value.membership_expire_at);
+            const now = new Date();
+            // Calculate difference in milliseconds
+            const diffTime = expireDate - now;
+            // Convert to days
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            // Show warning if less than or equal to 7 days
+            // Note: If expired (diffDays <= 0), it will also return true, which is intended as they need to renew.
+            return diffDays <= 7;
+        });
+
+        const expirationRemainingDays = computed(() => {
+            if (!auth.user.value || !auth.user.value.membership_expire_at) return 0;
+            const expireDate = new Date(auth.user.value.membership_expire_at);
+            const now = new Date();
+            const diffTime = expireDate - now;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays > 0 ? diffDays : 0;
+        });
+
         return {
             // Auth
             ...auth,
+            showExpirationWarning,
+            expirationRemainingDays,
             // Navigation
             currentView,
             setView,

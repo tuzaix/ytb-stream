@@ -49,6 +49,9 @@ def update_user(
             raise HTTPException(status_code=400, detail="Invalid membership level code")
         user.membership_id = membership.id
         
+    if user_update.membership_expire_at is not None:
+        user.membership_expire_at = user_update.membership_expire_at
+
     db.commit()
     db.refresh(user)
     return user

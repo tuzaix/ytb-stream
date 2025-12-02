@@ -41,6 +41,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     role = Column(String(20), default=UserRole.USER) # admin or user
+    membership_expire_at = Column(DateTime(timezone=True), nullable=True)
     
     membership_id = Column(Integer, ForeignKey("membership_levels.id"), nullable=True)
     membership = relationship("MembershipLevel", back_populates="users")

@@ -8,7 +8,7 @@ export const api = axios.create({
     baseURL: '/api/v1',
 });
 
-export const setupApiInterceptors = (token, logoutCallback) => {
+export const setupApiInterceptors = (token, logoutCallback, forbiddenCallback) => {
     api.interceptors.request.use(config => {
         if (token.value) {
             config.headers.Authorization = `Bearer ${token.value}`;
@@ -17,8 +17,13 @@ export const setupApiInterceptors = (token, logoutCallback) => {
     });
 
     api.interceptors.response.use(response => response, error => {
-        if (error.response && error.response.status === 401) {
-            logoutCallback();
+        if (error.response) {
+            if (error.response.status === 401 && logoutCallback) {
+                logoutCallback();
+            }
+            if (error.response.status === 403 && forbiddenCallback) {
+                forbiddenCallback(error.response.data.detail || "Access Denied");
+            }
         }
         return Promise.reject(error);
     });

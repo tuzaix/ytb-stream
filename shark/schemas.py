@@ -43,6 +43,7 @@ class UserOut(UserBase):
     is_active: bool
     role: str
     membership: Optional[MembershipLevelOut] = None
+    membership_expire_at: Optional[datetime] = None
     created_at: datetime
     
     class Config:
@@ -52,6 +53,7 @@ class UserUpdateAdmin(BaseModel):
     role: Optional[UserRole] = None
     is_active: Optional[bool] = None
     membership_level_code: Optional[str] = None
+    membership_expire_at: Optional[datetime] = None
 
 
 # Material Config
