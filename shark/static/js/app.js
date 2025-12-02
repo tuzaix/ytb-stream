@@ -6,6 +6,7 @@ import { useMaterials } from './composables/useMaterials.js';
 import { useSchedules } from './composables/useSchedules.js';
 import { useAdmin } from './composables/useAdmin.js';
 import { useMembership } from './composables/useMembership.js';
+import { useProfile } from './composables/useProfile.js';
 import { formatCron, weekdaysOptions, copyToClipboard } from './modules/utils.js';
 
 const { createApp, ref, onMounted, computed, watch } = Vue;
@@ -36,6 +37,7 @@ createApp({
         const auth = useAuth(t, setView);
         const accountModule = useAccounts(t, showToastMessage);
         const membership = useMembership();
+        const profile = useProfile(t, showToastMessage, auth.fetchUser);
         const admin = useAdmin();
         
         // Setup API Interceptors
@@ -148,11 +150,14 @@ createApp({
             return diffDays > 0 ? diffDays : 0;
         });
 
+        const is2faEnabled = computed(() => auth.user.value?.is_2fa_enabled || false);
+
         return {
             // Auth
             ...auth,
             showExpirationWarning,
             expirationRemainingDays,
+            is2faEnabled,
             // Navigation
             currentView,
             setView,
@@ -173,6 +178,8 @@ createApp({
             onClickMaterialGroup,
             // Membership
             ...membership,
+            // Profile
+            ...profile,
             // Admin
             ...admin,
             // Utils

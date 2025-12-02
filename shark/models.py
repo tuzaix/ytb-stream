@@ -43,6 +43,10 @@ class User(Base):
     role = Column(String(20), default=UserRole.USER) # admin or user
     membership_expire_at = Column(DateTime(timezone=True), nullable=True)
     
+    # 2FA
+    totp_secret = Column(String(32), nullable=True)
+    is_2fa_enabled = Column(Boolean, default=False)
+    
     membership_id = Column(Integer, ForeignKey("membership_levels.id"), nullable=True)
     membership = relationship("MembershipLevel", back_populates="users")
     

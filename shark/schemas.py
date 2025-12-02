@@ -44,10 +44,26 @@ class UserOut(UserBase):
     role: str
     membership: Optional[MembershipLevelOut] = None
     membership_expire_at: Optional[datetime] = None
+    is_2fa_enabled: bool = False
     created_at: datetime
     
     class Config:
         from_attributes = True
+
+class ChangePassword(BaseModel):
+    old_password: str
+    new_password: str
+
+class Setup2FAResponse(BaseModel):
+    secret: str
+    provisioning_uri: str
+    qr_code_base64: str
+
+class Verify2FA(BaseModel):
+    code: str
+
+class Disable2FA(BaseModel):
+    password: str
 
 class UserUpdateAdmin(BaseModel):
     role: Optional[UserRole] = None

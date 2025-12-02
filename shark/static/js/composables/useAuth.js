@@ -6,8 +6,9 @@ export function useAuth(t, setViewCallback) {
     const isLoggedIn = ref(!!token.value);
     const user = ref({});
     const authMode = ref('login'); // login or register
-    const authForm = ref({ username: '', password: '', email: '' });
+    const authForm = ref({ username: '', password: '', email: '', totp_code: '' });
     const authError = ref('');
+    const is2FARequired = ref(false);
 
     const fetchUser = async () => {
         try {
@@ -25,6 +26,9 @@ export function useAuth(t, setViewCallback) {
                 const formData = new FormData();
                 formData.append('username', authForm.value.username);
                 formData.append('password', authForm.value.password);
+                if (authForm.value.totp_code) {
+                    formData.append('totp_code', authForm.value.totp_code);
+                }
                 res = await api.post('/auth/login', formData);
             } else {
                 res = await api.post('/auth/register', {
@@ -43,10 +47,17 @@ export function useAuth(t, setViewCallback) {
                 token.value = res.data.access_token;
                 localStorage.setItem('shark_token', token.value);
                 isLoggedIn.value = true;
+                is2FARequired.value = false; // Reset
+                authForm.value.totp_code = ''; // Clear code
                 await fetchUser();
                 if (callbacks.onSuccess) callbacks.onSuccess();
             }
         } catch (e) {
+            if (e.response?.status === 403 && e.response?.data?.detail === '2FA_REQUIRED') {
+                is2FARequired.value = true;
+                authError.value = ''; 
+                return;
+            }
             authError.value = e.response?.data?.detail || t('auth.failed');
         }
     };
@@ -55,6 +66,7 @@ export function useAuth(t, setViewCallback) {
         token.value = null;
         localStorage.removeItem('shark_token');
         isLoggedIn.value = false;
+        is2FARequired.value = false;
         user.value = {};
         if (setViewCallback) setViewCallback('dashboard');
     };
@@ -66,6 +78,7 @@ export function useAuth(t, setViewCallback) {
         authMode,
         authForm,
         authError,
+        is2FARequired,
         handleAuth,
         logout,
         fetchUser

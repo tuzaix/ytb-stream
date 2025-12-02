@@ -10,3 +10,6 @@ apscheduler
 email-validator
 argon2-cffi
 aiofiles
+pyotp
+qrcode
+pillow

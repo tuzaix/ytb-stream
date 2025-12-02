@@ -34,18 +34,28 @@
                 </div>
 
                 <form @submit.prevent="handleAuth">
-                    <div class="mb-4">
+                    <div class="mb-4" v-if="!is2FARequired">
                         <label class="block text-sm font-bold mb-2">{{ $t('auth.username') }}</label>
                         <input v-model="authForm.username" type="text" class="w-full border rounded px-3 py-2" required>
                     </div>
-                    <div class="mb-4" v-if="authMode === 'register'">
+                    <div class="mb-4" v-if="authMode === 'register' && !is2FARequired">
                         <label class="block text-sm font-bold mb-2">{{ $t('auth.email') }}</label>
                         <input v-model="authForm.email" type="email" class="w-full border rounded px-3 py-2">
                     </div>
-                    <div class="mb-6">
+                    <div class="mb-6" v-if="!is2FARequired">
                         <label class="block text-sm font-bold mb-2">{{ $t('auth.password') }}</label>
                         <input v-model="authForm.password" type="password" class="w-full border rounded px-3 py-2" required>
                     </div>
+
+                    <div class="mb-6" v-if="is2FARequired">
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                            <p class="text-sm text-blue-700">{{ $t('auth.2fa_required_msg') }}</p>
+                        </div>
+                        <label class="block text-sm font-bold mb-2">{{ $t('auth.2fa_code') }}</label>
+                        <input v-model="authForm.totp_code" type="text" class="w-full border rounded px-3 py-2 text-center tracking-widest text-lg" placeholder="000000" maxlength="6" required autofocus>
+                        <p class="text-xs text-gray-500 mt-1">{{ $t('auth.2fa_instruction') }}</p>
+                    </div>
+
                     <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
                         {{ authMode === 'login' ? $t('auth.sign_in') : $t('auth.create_account') }}
                     </button>
@@ -87,6 +97,9 @@
                         </a>
                         <a @click="setView('accounts')" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'accounts' ? 'bg-blue-600' : 'hover:bg-gray-700']">
                             <i class="fa-brands fa-youtube mr-2"></i> {{ $t('nav.accounts') }}
+                        </a>
+                        <a @click="setView('profile')" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'profile' ? 'bg-blue-600' : 'hover:bg-gray-700']">
+                            <i class="fa-solid fa-user-shield mr-2"></i> {{ $t('nav.profile') }}
                         </a>
                         <a v-if="user.role === 'admin'" @click="fetchAllUsers(); setView('admin')" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'admin' ? 'bg-blue-600' : 'hover:bg-gray-700']">
                             <i class="fa-solid fa-users-gear mr-2"></i> {{ $t('admin.title') }}
@@ -333,6 +346,95 @@
                                      <span class="text-sm">{{ $t('account_details.page') }} {{ schedulesData.page }} {{ $t('account_details.of') }} {{ Math.ceil(schedulesData.total / schedulesData.pageSize) || 1 }}</span>
                                      <button @click="handleSchedulesPageChange(schedulesData.page + 1)" :disabled="schedulesData.page >= Math.ceil(schedulesData.total / schedulesData.pageSize)" class="px-3 py-1 border rounded text-sm disabled:opacity-50 bg-gray-100 hover:bg-gray-200">{{ $t('account_details.next') }}</button>
                                  </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Profile View -->
+                    <div v-if="currentView === 'profile'">
+                        <h2 class="text-2xl font-bold mb-6">{{ $t('profile.title') }}</h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Change Password -->
+                            <div class="bg-white p-6 rounded-lg shadow">
+                                <h3 class="text-lg font-bold mb-4 border-b pb-2">{{ $t('profile.change_password') }}</h3>
+                                <form @submit.prevent="changePassword">
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-bold mb-2">{{ $t('profile.old_password') }}</label>
+                                        <input v-model="passwordForm.old_password" type="password" class="w-full border rounded px-3 py-2" required>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-bold mb-2">{{ $t('profile.new_password') }}</label>
+                                        <input v-model="passwordForm.new_password" type="password" class="w-full border rounded px-3 py-2" required>
+                                    </div>
+                                    <div class="mb-6">
+                                        <label class="block text-sm font-bold mb-2">{{ $t('profile.confirm_password') }}</label>
+                                        <input v-model="passwordForm.confirm_password" type="password" class="w-full border rounded px-3 py-2" required>
+                                    </div>
+                                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full">
+                                        {{ $t('profile.save_password') }}
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- 2FA Settings -->
+                            <div class="bg-white p-6 rounded-lg shadow">
+                                <h3 class="text-lg font-bold mb-4 border-b pb-2">{{ $t('profile.2fa_settings') }}</h3>
+                                
+                                <div v-if="!is2faEnabled && !setupData">
+                                    <p class="text-gray-600 mb-4">{{ $t('profile.2fa_disabled_desc') }}</p>
+                                    <button @click="setup2FA" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full">
+                                        {{ $t('profile.enable_btn') }}
+                                    </button>
+                                </div>
+
+                                <div v-if="setupData" class="text-center">
+                                    <p class="text-sm text-gray-600 mb-4">{{ $t('profile.scan_qr') }}</p>
+                                    <div class="flex justify-center mb-4">
+                                        <img :src="'data:image/png;base64,' + setupData.qr_code_base64" alt="2FA QR Code" class="border p-2">
+                                    </div>
+                                    <p class="text-xs text-gray-500 mb-4 font-mono bg-gray-100 p-2 rounded break-all">{{ setupData.secret }}</p>
+                                    
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-bold mb-2">{{ $t('profile.enter_code') }}</label>
+                                        <input v-model="verifyCode" type="text" class="w-full border rounded px-3 py-2 text-center tracking-widest" placeholder="000000" maxlength="6">
+                                    </div>
+                                    
+                                    <div class="flex gap-2">
+                                        <button @click="setupData = null" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                                            {{ $t('common.cancel') }}
+                                        </button>
+                                        <button @click="verifyAndEnable2FA" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                            {{ $t('profile.verify_btn') }}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div v-if="is2faEnabled">
+                                    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4 flex items-center">
+                                        <i class="fa-solid fa-shield-check mr-2 text-xl"></i>
+                                        <span>{{ $t('profile.enabled') }}</span>
+                                    </div>
+                                    
+                                    <div v-if="!showDisableConfirm">
+                                        <button @click="showDisableConfirm = true" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 w-full">
+                                            {{ $t('profile.disable_btn') }}
+                                        </button>
+                                    </div>
+
+                                    <div v-else class="bg-gray-50 p-4 rounded border">
+                                        <p class="text-sm font-bold mb-2">{{ $t('profile.disable_confirm') }}</p>
+                                        <input v-model="disableCode" type="password" class="w-full border rounded px-3 py-2 mb-3" :placeholder="$t('profile.current_password')">
+                                        <div class="flex gap-2">
+                                            <button @click="showDisableConfirm = false" class="flex-1 text-gray-500 hover:text-gray-700 text-sm">
+                                                {{ $t('common.cancel') }}
+                                            </button>
+                                            <button @click="disable2FA" class="flex-1 bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700 text-sm">
+                                                {{ $t('profile.disable_btn') }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -662,6 +764,6 @@
         }
     </style>
 
-    <script type="module" src="/static/js/app.js?v=1.4"></script>
+    <script type="module" src="/static/js/app.js?v=1.5"></script>
 </body>
 </html>
