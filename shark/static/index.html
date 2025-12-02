@@ -79,16 +79,16 @@
                 <!-- Sidebar -->
                 <aside class="w-64 bg-gray-800 text-white flex-shrink-0 overflow-y-auto">
                     <nav class="p-4 space-y-2">
-                        <a @click="currentView = 'dashboard'" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'dashboard' ? 'bg-blue-600' : 'hover:bg-gray-700']">
+                        <a @click="setView('dashboard')" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'dashboard' ? 'bg-blue-600' : 'hover:bg-gray-700']">
                             <i class="fa-solid fa-gauge mr-2"></i> {{ $t('nav.dashboard') }}
                         </a>
-                        <a @click="currentView = 'memberships'" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'memberships' ? 'bg-blue-600' : 'hover:bg-gray-700']">
+                        <a @click="setView('memberships')" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'memberships' ? 'bg-blue-600' : 'hover:bg-gray-700']">
                             <i class="fa-solid fa-crown mr-2"></i> {{ $t('nav.memberships') }}
                         </a>
-                        <a @click="currentView = 'accounts'" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'accounts' ? 'bg-blue-600' : 'hover:bg-gray-700']">
+                        <a @click="setView('accounts')" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'accounts' ? 'bg-blue-600' : 'hover:bg-gray-700']">
                             <i class="fa-brands fa-youtube mr-2"></i> {{ $t('nav.accounts') }}
                         </a>
-                        <a v-if="user.role === 'admin'" @click="fetchAllUsers(); currentView = 'admin'" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'admin' ? 'bg-blue-600' : 'hover:bg-gray-700']">
+                        <a v-if="user.role === 'admin'" @click="fetchAllUsers(); setView('admin')" :class="['block py-2.5 px-4 rounded transition duration-200 cursor-pointer', currentView === 'admin' ? 'bg-blue-600' : 'hover:bg-gray-700']">
                             <i class="fa-solid fa-users-gear mr-2"></i> {{ $t('admin.title') }}
                         </a>
                     </nav>
@@ -164,7 +164,9 @@
                                 </thead>
                                 <tbody>
                                     <tr v-for="acc in accounts" :key="acc.id">
-                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm font-bold">{{ acc.account_name }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm font-bold">
+                                            <a href="#" @click.prevent="openAccountDetails(acc)" class="text-blue-600 hover:underline">{{ acc.account_name }}</a>
+                                        </td>
                                         <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                                             <a :href="'https://youtube.com/@' + acc.account_name" target="_blank" class="text-blue-600 hover:underline flex items-center">
                                                 <i class="fa-brands fa-youtube mr-1 text-red-600"></i> @{{ acc.account_name }}
@@ -203,6 +205,125 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- Account Details View -->
+                    <div v-if="currentView === 'account_details' && currentAccount" class="space-y-6">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-2xl font-bold flex items-center">
+                                <button @click="goBackToAccounts" class="mr-4 text-gray-500 hover:text-gray-800"><i class="fa-solid fa-arrow-left"></i></button>
+                                {{ currentAccount.account_name }}
+                            </h2>
+                        </div>
+
+                        <!-- Materials Section -->
+                        <div class="bg-white rounded shadow p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-xl font-bold">{{ $t('accounts.materials_btn') }}</h3>
+                                <button @click="openMaterials(currentAccount)" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                                    <i class="fa-solid fa-plus"></i> {{ $t('modal.materials.add_btn') }}
+                                </button>
+                            </div>
+                            
+                            <table class="min-w-full leading-normal mb-4">
+                                <thead>
+                                    <tr>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.materials_table.group') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.materials_table.type') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.materials_table.templates') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.materials_table.active') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="m in materialsData.items" :key="m.id">
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ m.group_name }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ m.material_type }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            <div class="text-xs text-gray-500">{{ $t('account_details.materials_table.title_prefix') }} {{ m.title_template }}</div>
+                                            <div class="text-xs text-gray-500">{{ $t('account_details.materials_table.desc_prefix') }} {{ m.description_template }}</div>
+                                        </td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                             <span :class="['px-2 py-1 text-xs rounded font-bold', m.is_active ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800']">{{ m.is_active ? $t('account_details.yes') : $t('account_details.no') }}</span>
+                                        </td>
+                                    </tr>
+                                    <tr v-if="materialsData.items.length === 0">
+                                        <td colspan="4" class="px-5 py-5 text-center text-gray-500">{{ $t('modal.materials.empty') }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="flex justify-between items-center border-t pt-4">
+                                 <div class="flex items-center">
+                                    <span class="text-sm text-gray-600 mr-2">{{ $t('account_details.show') }}</span>
+                                    <select v-model="materialsData.pageSize" @change="handleMaterialsPageSizeChange" class="border rounded p-1 text-sm">
+                                        <option :value="5">5</option>
+                                        <option :value="10">10</option>
+                                        <option :value="20">20</option>
+                                    </select>
+                                 </div>
+                                 <div class="flex items-center space-x-2">
+                                     <button @click="handleMaterialsPageChange(materialsData.page - 1)" :disabled="materialsData.page === 1" class="px-3 py-1 border rounded text-sm disabled:opacity-50 bg-gray-100 hover:bg-gray-200">{{ $t('account_details.prev') }}</button>
+                                     <span class="text-sm">{{ $t('account_details.page') }} {{ materialsData.page }} {{ $t('account_details.of') }} {{ Math.ceil(materialsData.total / materialsData.pageSize) || 1 }}</span>
+                                     <button @click="handleMaterialsPageChange(materialsData.page + 1)" :disabled="materialsData.page >= Math.ceil(materialsData.total / materialsData.pageSize)" class="px-3 py-1 border rounded text-sm disabled:opacity-50 bg-gray-100 hover:bg-gray-200">{{ $t('account_details.next') }}</button>
+                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Schedules Section -->
+                        <div class="bg-white rounded shadow p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-xl font-bold">{{ $t('accounts.schedules_btn') }}</h3>
+                                <button @click="openSchedules(currentAccount)" class="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700">
+                                    <i class="fa-solid fa-plus"></i> {{ $t('modal.schedules.add_title') }}
+                                </button>
+                            </div>
+
+                             <table class="min-w-full leading-normal mb-4">
+                                <thead>
+                                    <tr>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.schedules_table.id') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.schedules_table.cron') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.schedules_table.config_id') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.schedules_table.active') }}</th>
+                                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{{ $t('account_details.schedules_table.actions') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="s in schedulesData.items" :key="s.id">
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ s.id }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm font-mono">{{ formatCron(s.cron_expression) }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ s.material_config_id }}</td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                             <span :class="['px-2 py-1 text-xs rounded font-bold', s.is_active ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800']">{{ s.is_active ? $t('account_details.yes') : $t('account_details.no') }}</span>
+                                        </td>
+                                        <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                            <button @click="deleteSchedule(s.id)" class="text-red-600 hover:text-red-800">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                     <tr v-if="schedulesData.items.length === 0">
+                                        <td colspan="5" class="px-5 py-5 text-center text-gray-500">{{ $t('modal.schedules.empty') }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="flex justify-between items-center border-t pt-4">
+                                 <div class="flex items-center">
+                                    <span class="text-sm text-gray-600 mr-2">{{ $t('account_details.show') }}</span>
+                                    <select v-model="schedulesData.pageSize" @change="handleSchedulesPageSizeChange" class="border rounded p-1 text-sm">
+                                        <option :value="5">5</option>
+                                        <option :value="10">10</option>
+                                        <option :value="20">20</option>
+                                    </select>
+                                 </div>
+                                 <div class="flex items-center space-x-2">
+                                     <button @click="handleSchedulesPageChange(schedulesData.page - 1)" :disabled="schedulesData.page === 1" class="px-3 py-1 border rounded text-sm disabled:opacity-50 bg-gray-100 hover:bg-gray-200">{{ $t('account_details.prev') }}</button>
+                                     <span class="text-sm">{{ $t('account_details.page') }} {{ schedulesData.page }} {{ $t('account_details.of') }} {{ Math.ceil(schedulesData.total / schedulesData.pageSize) || 1 }}</span>
+                                     <button @click="handleSchedulesPageChange(schedulesData.page + 1)" :disabled="schedulesData.page >= Math.ceil(schedulesData.total / schedulesData.pageSize)" class="px-3 py-1 border rounded text-sm disabled:opacity-50 bg-gray-100 hover:bg-gray-200">{{ $t('account_details.next') }}</button>
+                                 </div>
+                            </div>
                         </div>
                     </div>
 
@@ -377,7 +498,7 @@
                 <div class="space-y-2 mb-6">
                     <div v-for="sch in currentSchedules" :key="sch.id" class="border p-3 rounded flex justify-between items-center">
                         <div>
-                            <span class="font-mono bg-gray-100 px-2 py-1 rounded text-sm">{{ sch.cron_expression }}</span>
+                            <span class="font-mono bg-gray-100 px-2 py-1 rounded text-sm">{{ formatCron(sch.cron_expression) }}</span>
                             <span class="text-xs text-gray-500 ml-2">{{ $t('modal.schedules.config_id') }}: {{ sch.material_config_id }}</span>
                         </div>
                         <button @click="deleteSchedule(sch.id)" class="text-red-500 hover:text-red-700 text-sm">{{ $t('common.delete') }}</button>
@@ -388,13 +509,70 @@
                 <!-- Add Schedule Form -->
                 <div class="border-t pt-4">
                     <h4 class="font-bold mb-2 text-sm">{{ $t('modal.schedules.add_title') }}</h4>
-                    <div class="flex gap-2 mb-2">
-                        <select v-model="newSchedule.material_config_id" class="border p-2 rounded flex-1 text-sm">
+                    
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold mb-1 text-gray-600">{{ $t('modal.schedules.select_config') }}</label>
+                        <select v-model="newSchedule.material_config_id" class="w-full border p-2 rounded text-sm">
                             <option disabled value="">{{ $t('modal.schedules.select_config') }}</option>
                             <option v-for="m in currentMaterials" :value="m.id">{{ m.group_name }}</option>
                         </select>
-                        <input v-model="newSchedule.cron_expression" :placeholder="$t('modal.schedules.cron_placeholder')" class="border p-2 rounded flex-1 text-sm">
                     </div>
+
+                    <!-- Cron Builder UI -->
+                    <div class="bg-gray-50 p-3 rounded border mb-4">
+                        <div class="mb-3">
+                            <label class="block text-xs font-bold mb-1 text-gray-600">{{ $t('cron_builder.type_label') }}</label>
+                            <select v-model="scheduleForm.type" class="w-full border p-2 rounded text-sm">
+                                <option value="interval">{{ $t('cron_builder.types.interval') }}</option>
+                                <option value="daily">{{ $t('cron_builder.types.daily') }}</option>
+                                <option value="weekly">{{ $t('cron_builder.types.weekly') }}</option>
+                                <option value="monthly">{{ $t('cron_builder.types.monthly') }}</option>
+                            </select>
+                        </div>
+
+                        <!-- Interval Options -->
+                        <div v-if="scheduleForm.type === 'interval'" class="flex gap-2 mb-2">
+                            <div class="flex-1">
+                                <label class="block text-xs font-bold mb-1 text-gray-600">{{ $t('cron_builder.interval_label') }}</label>
+                                <input type="number" v-model="scheduleForm.interval.value" min="1" class="w-full border p-2 rounded text-sm">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs font-bold mb-1 text-gray-600">&nbsp;</label>
+                                <select v-model="scheduleForm.interval.unit" class="w-full border p-2 rounded text-sm">
+                                    <option value="minutes">{{ $t('cron_builder.units.minutes') }}</option>
+                                    <option value="hours">{{ $t('cron_builder.units.hours') }}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Time Picker (Daily, Weekly, Monthly) -->
+                        <div v-if="['daily', 'weekly', 'monthly'].includes(scheduleForm.type)" class="mb-2">
+                            <label class="block text-xs font-bold mb-1 text-gray-600">{{ $t('cron_builder.time_label') }}</label>
+                            <input type="time" v-model="scheduleForm.time" class="w-full border p-2 rounded text-sm">
+                        </div>
+
+                        <!-- Weekday Picker -->
+                        <div v-if="scheduleForm.type === 'weekly'" class="mb-2">
+                            <label class="block text-xs font-bold mb-1 text-gray-600">{{ $t('cron_builder.weekdays_label') }}</label>
+                            <div class="flex flex-wrap gap-2">
+                                <label v-for="day in weekdaysOptions" :key="day.value" class="inline-flex items-center text-xs bg-white border px-2 py-1 rounded cursor-pointer hover:bg-gray-50">
+                                    <input type="checkbox" :value="day.value" v-model="scheduleForm.weekdays" class="mr-1">
+                                    {{ $t('cron_builder.weekdays_items.' + day.labelKey) }}
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Month Day Picker -->
+                        <div v-if="scheduleForm.type === 'monthly'" class="mb-2">
+                            <label class="block text-xs font-bold mb-1 text-gray-600">{{ $t('cron_builder.month_day_label') }}</label>
+                            <input type="number" v-model="scheduleForm.monthDay" min="1" max="31" class="w-full border p-2 rounded text-sm">
+                        </div>
+                        
+                        <div class="text-xs text-gray-500 mt-2 font-mono bg-gray-200 p-1 rounded inline-block">
+                            {{ $t('cron_builder.preview') }} {{ formatCron(generateCron) }}
+                        </div>
+                    </div>
+
                     <button @click="createSchedule" class="w-full bg-purple-600 text-white py-2 rounded hover:bg-purple-700 text-sm">{{ $t('modal.schedules.create_btn') }}</button>
                 </div>
             </div>

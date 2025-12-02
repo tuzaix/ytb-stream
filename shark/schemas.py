@@ -73,6 +73,10 @@ class MaterialConfigOut(MaterialConfigBase):
     class Config:
         from_attributes = True
 
+class PaginatedMaterialConfigOut(BaseModel):
+    total: int
+    items: List[MaterialConfigOut]
+
 # Schedule
 class ScheduleBase(BaseModel):
     cron_expression: str
@@ -90,6 +94,10 @@ class ScheduleOut(ScheduleBase):
     created_at: datetime
     class Config:
         from_attributes = True
+
+class PaginatedScheduleOut(BaseModel):
+    total: int
+    items: List[ScheduleOut]
 
 # Youtube Account
 class YoutubeAccountBase(BaseModel):

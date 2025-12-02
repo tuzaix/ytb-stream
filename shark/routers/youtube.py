@@ -6,8 +6,8 @@ from ..database import get_db
 from ..models import User, YoutubeAccount, MaterialConfig, UploadSchedule
 from ..schemas import (
     YoutubeAccountCreate, YoutubeAccountOut, 
-    MaterialConfigCreate, MaterialConfigOut,
-    ScheduleCreate, ScheduleOut
+    MaterialConfigCreate, MaterialConfigOut, PaginatedMaterialConfigOut,
+    ScheduleCreate, ScheduleOut, PaginatedScheduleOut
 )
 from .auth import get_current_user
 from ..services.ftp_service import ftp_service
@@ -174,6 +174,10 @@ def delete_youtube_account(
     except Exception as e:
         print(f"Failed to delete account directory {account.account_name}: {e}")
 
+    # Delete related records (Schedules first, then MaterialConfigs, then Account) to avoid FK constraints
+    db.query(UploadSchedule).filter(UploadSchedule.youtube_account_id == account.id).delete()
+    db.query(MaterialConfig).filter(MaterialConfig.youtube_account_id == account.id).delete()
+
     db.delete(account)
     db.commit()
     return
@@ -205,16 +209,23 @@ def create_material_config(
     db.refresh(new_config)
     return new_config
 
-@router.get("/accounts/{account_id}/materials", response_model=List[MaterialConfigOut])
+@router.get("/accounts/{account_id}/materials", response_model=PaginatedMaterialConfigOut)
 def list_materials(
     account_id: int,
+    skip: int = 0,
+    limit: int = 5,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     account = db.query(YoutubeAccount).filter(YoutubeAccount.id == account_id, YoutubeAccount.user_id == current_user.id).first()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
-    return account.material_configs
+    
+    query = db.query(MaterialConfig).filter(MaterialConfig.youtube_account_id == account_id)
+    total = query.count()
+    items = query.order_by(MaterialConfig.created_at.desc()).offset(skip).limit(limit).all()
+    
+    return {"total": total, "items": items}
 
 # --- Schedules ---
 
@@ -250,16 +261,23 @@ def create_schedule(
 
     return new_schedule
 
-@router.get("/accounts/{account_id}/schedules", response_model=List[ScheduleOut])
+@router.get("/accounts/{account_id}/schedules", response_model=PaginatedScheduleOut)
 def list_schedules(
     account_id: int,
+    skip: int = 0,
+    limit: int = 10,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     account = db.query(YoutubeAccount).filter(YoutubeAccount.id == account_id, YoutubeAccount.user_id == current_user.id).first()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
-    return account.schedules
+    
+    query = db.query(UploadSchedule).filter(UploadSchedule.youtube_account_id == account_id)
+    total = query.count()
+    items = query.order_by(UploadSchedule.created_at.desc()).offset(skip).limit(limit).all()
+    
+    return {"total": total, "items": items}
 
 @router.delete("/schedules/{schedule_id}")
 def delete_schedule(
