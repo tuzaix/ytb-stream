@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Any
 from datetime import datetime
-from .models import MaterialType, UserRole
+from .models import MaterialType, UserRole, ScheduleType, IntervalUnit
 
 # Token
 class Token(BaseModel):
@@ -79,9 +79,15 @@ class PaginatedMaterialConfigOut(BaseModel):
 
 # Schedule
 class ScheduleBase(BaseModel):
-    cron_expression: str
-    is_active: bool = True
     material_config_id: int
+    is_active: bool = True
+    
+    schedule_type: ScheduleType
+    interval_value: Optional[int] = None
+    interval_unit: Optional[IntervalUnit] = None
+    run_time: Optional[str] = None
+    weekdays: Optional[str] = None
+    month_day: Optional[int] = None
 
 class ScheduleCreate(ScheduleBase):
     pass

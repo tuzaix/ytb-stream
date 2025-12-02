@@ -93,6 +93,16 @@ class MaterialConfig(Base):
 
     youtube_account = relationship("YoutubeAccount", back_populates="material_configs")
 
+class ScheduleType(str, enum.Enum):
+    INTERVAL = "interval"
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+
+class IntervalUnit(str, enum.Enum):
+    MINUTES = "minutes"
+    HOURS = "hours"
+
 class UploadSchedule(Base):
     __tablename__ = "upload_schedules"
 
@@ -100,7 +110,22 @@ class UploadSchedule(Base):
     youtube_account_id = Column(Integer, ForeignKey("youtube_accounts.id"), nullable=False)
     material_config_id = Column(Integer, ForeignKey("material_configs.id"), nullable=False)
     
-    cron_expression = Column(String(100), nullable=False) # e.g., "0 10 * * *"
+    # Structured Schedule Config
+    schedule_type = Column(String(20), nullable=False, default=ScheduleType.INTERVAL)
+    
+    # For Interval
+    interval_value = Column(Integer, nullable=True)
+    interval_unit = Column(String(20), nullable=True) # minutes, hours
+    
+    # For Daily/Weekly/Monthly
+    run_time = Column(String(5), nullable=True) # "HH:MM"
+    
+    # For Weekly
+    weekdays = Column(String(50), nullable=True) # "0,1,2" (Mon,Tue,Wed)
+    
+    # For Monthly
+    month_day = Column(Integer, nullable=True)
+    
     is_active = Column(Boolean, default=True)
     last_run_at = Column(DateTime(timezone=True), nullable=True)
     next_run_at = Column(DateTime(timezone=True), nullable=True)

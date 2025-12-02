@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
-from ..models import User, YoutubeAccount, MaterialConfig, UploadSchedule
+from ..models import User, YoutubeAccount, MaterialConfig, UploadSchedule, ScheduleType, IntervalUnit
 from ..schemas import (
     YoutubeAccountCreate, YoutubeAccountOut, 
     MaterialConfigCreate, MaterialConfigOut, PaginatedMaterialConfigOut,
@@ -245,10 +245,29 @@ def create_schedule(
     if not material:
         raise HTTPException(status_code=400, detail="Material Config not found or does not belong to this account")
 
+    # Validate schedule fields
+    if schedule_in.schedule_type == ScheduleType.INTERVAL:
+        if not schedule_in.interval_value or not schedule_in.interval_unit:
+            raise HTTPException(status_code=400, detail="Interval value and unit are required for interval schedule")
+    elif schedule_in.schedule_type == ScheduleType.DAILY:
+        if not schedule_in.run_time:
+            raise HTTPException(status_code=400, detail="Run time is required for daily schedule")
+    elif schedule_in.schedule_type == ScheduleType.WEEKLY:
+        if not schedule_in.run_time or not schedule_in.weekdays:
+            raise HTTPException(status_code=400, detail="Run time and weekdays are required for weekly schedule")
+    elif schedule_in.schedule_type == ScheduleType.MONTHLY:
+        if not schedule_in.run_time or not schedule_in.month_day:
+            raise HTTPException(status_code=400, detail="Run time and month day are required for monthly schedule")
+
     new_schedule = UploadSchedule(
         youtube_account_id=account.id,
         material_config_id=schedule_in.material_config_id,
-        cron_expression=schedule_in.cron_expression,
+        schedule_type=schedule_in.schedule_type,
+        interval_value=schedule_in.interval_value,
+        interval_unit=schedule_in.interval_unit,
+        run_time=schedule_in.run_time,
+        weekdays=schedule_in.weekdays,
+        month_day=schedule_in.month_day,
         is_active=schedule_in.is_active
     )
     db.add(new_schedule)
@@ -257,7 +276,7 @@ def create_schedule(
 
     # Add to Scheduler
     if new_schedule.is_active:
-        scheduler_service.add_job(new_schedule.id, new_schedule.cron_expression)
+        scheduler_service.add_job(new_schedule)
 
     return new_schedule
 

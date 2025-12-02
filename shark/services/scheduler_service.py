@@ -4,9 +4,10 @@ import random
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
-from ..models import UploadSchedule, YoutubeAccount, MaterialConfig
+from ..models import UploadSchedule, YoutubeAccount, MaterialConfig, ScheduleType, IntervalUnit
 from ..config import config
 
 # Add parent directory to path to import upload_video
@@ -26,28 +27,85 @@ class SchedulerService:
         self.scheduler = BackgroundScheduler()
         self.scheduler.start()
 
-    def add_job(self, schedule_id: int, cron_expression: str):
+    def add_job(self, schedule: UploadSchedule):
         """
-        Adds or updates a job for the given schedule ID.
+        Adds or updates a job for the given schedule.
         """
-        job_id = f"schedule_{schedule_id}"
+        job_id = f"schedule_{schedule.id}"
         
         # Remove existing if any
         if self.scheduler.get_job(job_id):
             self.scheduler.remove_job(job_id)
 
         try:
-            trigger = CronTrigger.from_crontab(cron_expression)
-            self.scheduler.add_job(
-                self.execute_upload_task,
-                trigger,
-                id=job_id,
-                args=[schedule_id],
-                replace_existing=True
-            )
-            print(f"[Scheduler] Added job {job_id} with cron {cron_expression}")
+            trigger = None
+            if schedule.schedule_type == ScheduleType.INTERVAL:
+                minutes = 0
+                hours = 0
+                if schedule.interval_unit == IntervalUnit.MINUTES:
+                    minutes = schedule.interval_value
+                elif schedule.interval_unit == IntervalUnit.HOURS:
+                    hours = schedule.interval_value
+                
+                # Ensure at least some interval
+                if minutes == 0 and hours == 0:
+                    print(f"[Scheduler] Invalid interval for job {job_id}")
+                    return
+
+                trigger = IntervalTrigger(minutes=minutes, hours=hours)
+            
+            elif schedule.schedule_type == ScheduleType.DAILY:
+                if not schedule.run_time:
+                    print(f"[Scheduler] Missing run_time for DAILY job {job_id}")
+                    return
+                hour, minute = schedule.run_time.split(":")
+                trigger = CronTrigger(hour=hour, minute=minute)
+            
+            elif schedule.schedule_type == ScheduleType.WEEKLY:
+                if not schedule.run_time or not schedule.weekdays:
+                    print(f"[Scheduler] Missing run_time or weekdays for WEEKLY job {job_id}")
+                    return
+                hour, minute = schedule.run_time.split(":")
+                trigger = CronTrigger(day_of_week=schedule.weekdays, hour=hour, minute=minute)
+            
+            elif schedule.schedule_type == ScheduleType.MONTHLY:
+                if not schedule.run_time or not schedule.month_day:
+                    print(f"[Scheduler] Missing run_time or month_day for MONTHLY job {job_id}")
+                    return
+                hour, minute = schedule.run_time.split(":")
+                trigger = CronTrigger(day=schedule.month_day, hour=hour, minute=minute)
+
+            if trigger:
+                job = self.scheduler.add_job(
+                    self.execute_upload_task,
+                    trigger,
+                    id=job_id,
+                    args=[schedule.id],
+                    replace_existing=True
+                )
+                print(f"[Scheduler] Added job {job_id} type {schedule.schedule_type}")
+                
+                # Update next_run_at
+                if job.next_run_time:
+                    self.update_next_run_at(schedule.id, job.next_run_time)
+            else:
+                 print(f"[Scheduler] Could not determine trigger for job {job_id}")
+
         except Exception as e:
             print(f"[Scheduler] Error adding job {job_id}: {e}")
+
+    def update_next_run_at(self, schedule_id: int, next_run_time: datetime):
+        db = SessionLocal()
+        try:
+            schedule = db.query(UploadSchedule).filter(UploadSchedule.id == schedule_id).first()
+            if schedule:
+                schedule.next_run_at = next_run_time
+                db.commit()
+                # print(f"[Scheduler] Updated next_run_at for {schedule_id} to {next_run_time}")
+        except Exception as e:
+            print(f"[Scheduler] Failed to update next_run_at: {e}")
+        finally:
+            db.close()
 
     def remove_job(self, schedule_id: int):
         job_id = f"schedule_{schedule_id}"

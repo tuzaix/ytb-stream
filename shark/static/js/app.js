@@ -457,6 +457,298 @@ createApp({
             { value: 0, labelKey: 'sun' }
         ];
 
+        // Missing Refs
+        const allUsers = ref([]);
+        const showEditUserModal = ref(false);
+        const editingUser = ref(null);
+        const editUserForm = ref({});
+        const showUpgradeModal = ref(false);
+        const upgradeLevelName = ref('');
+
+        // API Setup
+        const api = axios.create({
+            baseURL: '/api/v1',
+        });
+
+        api.interceptors.request.use(config => {
+            if (token.value) {
+                config.headers.Authorization = `Bearer ${token.value}`;
+            }
+            return config;
+        });
+
+        api.interceptors.response.use(response => response, error => {
+            if (error.response && error.response.status === 401) {
+                logout();
+            }
+            return Promise.reject(error);
+        });
+
+        // Auth Functions
+        const handleAuth = async () => {
+            try {
+                let res;
+                if (authMode.value === 'login') {
+                    const formData = new FormData();
+                    formData.append('username', authForm.value.username);
+                    formData.append('password', authForm.value.password);
+                    res = await api.post('/auth/login', formData);
+                } else {
+                    res = await api.post('/auth/register', {
+                        username: authForm.value.username,
+                        email: authForm.value.email,
+                        password: authForm.value.password
+                    });
+                    if (res.data) {
+                         authMode.value = 'login';
+                         alert(t('auth.login') + ' ' + t('auth.please_login')); // robust fallback
+                         return;
+                    }
+                }
+                
+                if (res.data.access_token) {
+                    token.value = res.data.access_token;
+                    localStorage.setItem('shark_token', token.value);
+                    isLoggedIn.value = true;
+                    await fetchUser();
+                    await fetchMemberships();
+                    await fetchAccounts();
+                }
+            } catch (e) {
+                authError.value = e.response?.data?.detail || t('auth.failed');
+            }
+        };
+
+        const logout = () => {
+            token.value = null;
+            localStorage.removeItem('shark_token');
+            isLoggedIn.value = false;
+            user.value = {};
+            currentView.value = 'dashboard';
+        };
+
+        const fetchUser = async () => {
+            try {
+                const res = await api.get('/users/me');
+                user.value = res.data;
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        const fetchMemberships = async () => {
+             try {
+                const res = await api.get('/users/memberships');
+                memberships.value = res.data;
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        const fetchAccounts = async () => {
+             try {
+                const res = await api.get('/youtube/accounts');
+                accounts.value = res.data;
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        const purchaseMembership = (level) => {
+             upgradeLevelName.value = level.name;
+             showUpgradeModal.value = true;
+        };
+
+        // Account Creation & Auth
+        const handleClientSecretUpload = (event) => {
+            newAccountClientSecret.value = event.target.files[0];
+        };
+        
+        const handleTokenUpload = (event) => {
+            newAccountToken.value = event.target.files[0];
+        };
+
+        const createAccount = async () => {
+            if (!newAccountName.value || !newAccountClientSecret.value || !newAccountToken.value) {
+                alert('Please fill all fields');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('desired_username', newAccountName.value);
+            formData.append('client_secret_file', newAccountClientSecret.value);
+            formData.append('token_file', newAccountToken.value);
+
+            try {
+                const res = await api.post('/youtube/accounts', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                createdAccountInfo.value = res.data;
+                showAccountSuccessModal.value = true;
+                showAddAccountModal.value = false;
+                fetchAccounts();
+                newAccountName.value = '';
+                newAccountClientSecret.value = null;
+                newAccountToken.value = null;
+            } catch (e) {
+                alert(e.response?.data?.detail || t('alerts.create_account_failed'));
+            }
+        };
+
+        const openUpdateAuth = (acc) => {
+            selectedAccount.value = acc;
+            showUpdateAuthModal.value = true;
+        };
+
+        const handleUpdateAuthClientSecretUpload = (event) => {
+            updateAuthClientSecret.value = event.target.files[0];
+        };
+
+        const handleUpdateAuthTokenUpload = (event) => {
+            updateAuthToken.value = event.target.files[0];
+        };
+
+        const updateAuth = async () => {
+             if (!updateAuthClientSecret.value || !updateAuthToken.value) {
+                alert('Please select both files');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('client_secret_file', updateAuthClientSecret.value);
+            formData.append('token_file', updateAuthToken.value);
+            
+            try {
+                await api.put(`/youtube/accounts/${selectedAccount.value.id}/auth`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                alert('Auth updated successfully');
+                showUpdateAuthModal.value = false;
+                fetchAccounts();
+            } catch (e) {
+                 alert(e.response?.data?.detail || 'Failed to update auth');
+            }
+        };
+
+        const deleteAccount = async (acc) => {
+             if (!confirm(t('alerts.delete_account_confirm_msg', { name: acc.account_name }))) return;
+            
+            deletingAccountIds.value.add(acc.id);
+            try {
+                await api.delete(`/youtube/accounts/${acc.id}`);
+                showToastMessage(t('alerts.delete_success'));
+                await fetchAccounts();
+            } catch (e) {
+                 alert(e.response?.data?.detail || t('alerts.delete_failed'));
+            } finally {
+                deletingAccountIds.value.delete(acc.id);
+            }
+        };
+
+        const copyToClipboard = (text) => {
+            navigator.clipboard.writeText(text).then(() => {
+                showToastMessage('Copied to clipboard');
+            });
+        };
+        
+        const copyFtpInfo = (acc) => {
+            const info = `Host: ${acc.ftp_host}\nPort: ${acc.ftp_port}\nUser: ${acc.account_name}\nPass: ${acc.ftp_password}`;
+            copyToClipboard(info);
+        };
+
+        // Materials & Schedules Modals
+        const openMaterials = async (acc) => {
+            selectedAccount.value = acc;
+            showMaterialsModal.value = true;
+            try {
+                 const res = await api.get(`/youtube/accounts/${acc.id}/materials?skip=0&limit=100`);
+                 currentMaterials.value = res.data.items;
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        const createMaterial = async () => {
+            if (!selectedAccount.value) return;
+            try {
+                await api.post(`/youtube/accounts/${selectedAccount.value.id}/materials`, newMaterial.value);
+                const res = await api.get(`/youtube/accounts/${selectedAccount.value.id}/materials?skip=0&limit=100`);
+                currentMaterials.value = res.data.items;
+                newMaterial.value = { group_name: '', material_type: 'shorts', title_template: '', description_template: '', tags: '' };
+            } catch (e) {
+                alert(e.response?.data?.detail || t('alerts.add_material_failed'));
+            }
+        };
+
+        const openSchedules = async (acc) => {
+             selectedAccount.value = acc;
+             showSchedulesModal.value = true;
+             try {
+                 const res = await api.get(`/youtube/accounts/${acc.id}/schedules?skip=0&limit=100`);
+                 currentSchedules.value = res.data.items;
+                 const matRes = await api.get(`/youtube/accounts/${acc.id}/materials?skip=0&limit=100`);
+                 currentMaterials.value = matRes.data.items; 
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        // Account Details Logic
+        const openAccountDetails = (acc) => {
+            currentAccount.value = acc;
+            currentView.value = 'account_details';
+            fetchAccountMaterials();
+            fetchAccountSchedules();
+        };
+
+        const goBackToAccounts = () => {
+            currentAccount.value = null;
+            currentView.value = 'accounts';
+        };
+        
+        const fetchAccountMaterials = async () => {
+            if (!currentAccount.value) return;
+            const skip = (materialsData.value.page - 1) * materialsData.value.pageSize;
+            try {
+                const res = await api.get(`/youtube/accounts/${currentAccount.value.id}/materials?skip=${skip}&limit=${materialsData.value.pageSize}`);
+                materialsData.value.items = res.data.items;
+                materialsData.value.total = res.data.total;
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        const fetchAccountSchedules = async () => {
+             if (!currentAccount.value) return;
+            const skip = (schedulesData.value.page - 1) * schedulesData.value.pageSize;
+            try {
+                const res = await api.get(`/youtube/accounts/${currentAccount.value.id}/schedules?skip=${skip}&limit=${schedulesData.value.pageSize}`);
+                schedulesData.value.items = res.data.items;
+                schedulesData.value.total = res.data.total;
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        const handleMaterialsPageChange = (newPage) => {
+            materialsData.value.page = newPage;
+            fetchAccountMaterials();
+        };
+
+        const handleMaterialsPageSizeChange = () => {
+             materialsData.value.page = 1;
+             fetchAccountMaterials();
+        };
+
+        const handleSchedulesPageChange = (newPage) => {
+             schedulesData.value.page = newPage;
+             fetchAccountSchedules();
+        };
+
+        const handleSchedulesPageSizeChange = () => {
+             schedulesData.value.page = 1;
+             fetchAccountSchedules();
+        };
+
         const generateCron = computed(() => {
             const { type, interval, time, weekdays, monthDay } = scheduleForm.value;
             // Parse time HH:MM
@@ -488,9 +780,39 @@ createApp({
             }
         });
 
-        const formatCron = (cron) => {
-            if (!cron) return '-';
-            // Simple heuristic parser for display
+        const formatCron = (input) => {
+            if (!input) return '-';
+            
+            // Handle structured schedule object from DB
+            if (typeof input === 'object') {
+                const { schedule_type, interval_value, interval_unit, run_time, weekdays, month_day } = input;
+                
+                if (schedule_type === 'interval') {
+                     return t('cron_builder.types.interval') + ' ' + interval_value + ' ' + t('cron_builder.units.' + interval_unit);
+                }
+                if (schedule_type === 'daily') {
+                     return t('cron_builder.types.daily') + ' ' + run_time;
+                }
+                if (schedule_type === 'weekly') {
+                     let daysText = weekdays;
+                     if (weekdays) {
+                        const dayNums = weekdays.split(',').map(Number);
+                        const dayNames = dayNums.map(num => {
+                            const opt = weekdaysOptions.find(o => o.value === num);
+                            return opt ? t('cron_builder.weekdays_items.' + opt.labelKey) : num;
+                        });
+                        daysText = dayNames.join(', ');
+                     }
+                     return t('cron_builder.types.weekly') + ' ' + daysText + ' ' + run_time;
+                }
+                if (schedule_type === 'monthly') {
+                     return t('cron_builder.types.monthly') + ' ' + month_day + ' ' + run_time;
+                }
+                return schedule_type;
+            }
+
+            // Handle Cron String (Preview)
+            const cron = input;
             if (cron.startsWith('*/')) {
                 const parts = cron.split(' ');
                 const minPart = parts[0];
@@ -530,321 +852,33 @@ createApp({
             return cron;
         };
 
-        // Upgrade Modal
-        const showUpgradeModal = ref(false);
-        const upgradeLevelName = ref('');
-
-        // Admin State
-        const allUsers = ref([]);
-        const showEditUserModal = ref(false);
-        const editingUser = ref(null);
-        const editUserForm = ref({ role: '', is_active: true, membership_level_code: '' });
-
-        // Setup Axios
-        const api = axios.create({ baseURL: '' }); // Relative path
-        if (token.value) {
-            api.defaults.headers.common['Authorization'] = `Bearer ${token.value}`;
-            isLoggedIn.value = true;
-        }
-
-        // Actions
-        const fetchUser = async () => {
-            try {
-                const res = await api.get('/users/me');
-                user.value = res.data;
-            } catch (e) {
-                logout();
-            }
-        };
-
-        const fetchMemberships = async () => {
-            const res = await api.get('/users/memberships');
-            memberships.value = res.data;
-        };
-
-        const fetchAccounts = async () => {
-            const res = await api.get('/youtube/accounts');
-            accounts.value = res.data;
-        };
-
-        const handleAuth = async () => {
-            authError.value = '';
-            try {
-                if (authMode.value === 'register') {
-                    await api.post('/auth/register', authForm.value);
-                    // Auto login after register
-                    authMode.value = 'login';
-                    await handleAuth(); // Recurse to login
-                    return;
-                }
-                
-                // Login
-                const params = new URLSearchParams();
-                params.append('username', authForm.value.username);
-                params.append('password', authForm.value.password);
-                
-                const res = await api.post('/auth/login', params);
-                token.value = res.data.access_token;
-                localStorage.setItem('shark_token', token.value);
-                api.defaults.headers.common['Authorization'] = `Bearer ${token.value}`;
-                isLoggedIn.value = true;
-                
-                await fetchUser();
-                await fetchMemberships();
-                await fetchAccounts();
-
-            } catch (e) {
-                authError.value = e.response?.data?.detail || t('auth.failed');
-            }
-        };
-
-        const logout = () => {
-            token.value = null;
-            localStorage.removeItem('shark_token');
-            isLoggedIn.value = false;
-            user.value = {};
-            delete api.defaults.headers.common['Authorization'];
-        };
-
-        const purchaseMembership = async (levelCode) => {
-            const levelName = t(`membership_levels.${levelCode}.name`);
-            // Instead of direct purchase, show modal
-            upgradeLevelName.value = levelName;
-            showUpgradeModal.value = true;
-        };
-
-        const deleteAccount = async (acc) => {
-             if (deletingAccountIds.value.has(acc.id)) return;
-             if (!confirm(t('alerts.delete_account_confirm_msg', { name: acc.account_name }))) return;
-             
-             deletingAccountIds.value.add(acc.id);
-             try {
-                 await api.delete(`/youtube/accounts/${acc.id}`);
-                 showToastMessage(t('alerts.delete_success'));
-                 // Force save current view state before reload
-                 localStorage.setItem('shark_current_view', 'accounts');
-                 setTimeout(() => {
-                     location.reload();
-                 }, 1000);
-             } catch (e) {
-                 console.error(e);
-                 showToastMessage(t('alerts.delete_failed'));
-             } finally {
-                 deletingAccountIds.value.delete(acc.id);
-             }
-        };
-
-        const createAccount = async () => {
-            if (!newAccountName.value || !newAccountClientSecret.value || !newAccountToken.value) {
-                alert(t('alerts.create_account_failed') + ': Missing fields');
-                return;
-            }
-            try {
-                const formData = new FormData();
-                formData.append('desired_username', newAccountName.value);
-                formData.append('client_secret_file', newAccountClientSecret.value);
-                formData.append('token_file', newAccountToken.value);
-
-                const res = await api.post('/youtube/accounts', formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                });
-                
-                createdAccountInfo.value = res.data;
-                showAddAccountModal.value = false;
-                showAccountSuccessModal.value = true; // Show success modal
-                
-                newAccountName.value = '';
-                newAccountClientSecret.value = null;
-                newAccountToken.value = null;
-                // Reset file inputs manually if needed, or just let v-if handle it
-                
-                await fetchAccounts();
-            } catch (e) {
-                alert(e.response?.data?.detail || t('alerts.create_account_failed'));
-            }
-        };
-
-        const handleClientSecretUpload = (event) => {
-            newAccountClientSecret.value = event.target.files[0];
-        };
-
-        const handleTokenUpload = (event) => {
-            newAccountToken.value = event.target.files[0];
-        };
-
-        const handleUpdateAuthClientSecretUpload = (event) => {
-            updateAuthClientSecret.value = event.target.files[0];
-        };
-
-        const handleUpdateAuthTokenUpload = (event) => {
-            updateAuthToken.value = event.target.files[0];
-        };
-
-        const openUpdateAuth = (acc) => {
-            selectedAccount.value = acc;
-            showUpdateAuthModal.value = true;
-            updateAuthClientSecret.value = null;
-            updateAuthToken.value = null;
-        };
-
-        const updateAuth = async () => {
-            if (!selectedAccount.value || !updateAuthClientSecret.value || !updateAuthToken.value) {
-                alert('Please select both files');
-                return;
-            }
-            try {
-                const formData = new FormData();
-                formData.append('client_secret_file', updateAuthClientSecret.value);
-                formData.append('token_file', updateAuthToken.value);
-
-                await api.put(`/youtube/accounts/${selectedAccount.value.id}/auth`, formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                });
-                
-                alert('Auth config updated successfully');
-                showUpdateAuthModal.value = false;
-                updateAuthClientSecret.value = null;
-                updateAuthToken.value = null;
-            } catch (e) {
-                alert(e.response?.data?.detail || 'Failed to update auth config');
-            }
-        };
-
-        const copyToClipboard = (text) => {
-            navigator.clipboard.writeText(text).then(() => {
-                showToastMessage('Password copied to clipboard!');
-            }).catch(err => {
-                console.error('Could not copy text: ', err);
-                showToastMessage('Failed to copy password.');
-            });
-        };
-
-        const copyFtpInfo = (acc) => {
-            const info = `IP: ${acc.ftp_host}\nPort: ${acc.ftp_port}\nUser: ${acc.account_name}\nPassword: ${acc.ftp_password}`;
-            navigator.clipboard.writeText(info).then(() => {
-                showToastMessage('FTP Info copied!');
-            }).catch(err => {
-                console.error('Could not copy info: ', err);
-                showToastMessage('Failed to copy info.');
-            });
-        };
-
-        // Account Details
-        const fetchAccountMaterials = async () => {
-            if (!currentAccount.value) return;
-            try {
-                const offset = (materialsData.value.page - 1) * materialsData.value.pageSize;
-                const res = await api.get(`/youtube/accounts/${currentAccount.value.id}/materials?skip=${offset}&limit=${materialsData.value.pageSize}`);
-                materialsData.value.items = res.data.items;
-                materialsData.value.total = res.data.total;
-            } catch (e) {
-                console.error(e);
-            }
-        };
-
-        const fetchAccountSchedules = async () => {
-            if (!currentAccount.value) return;
-            try {
-                const offset = (schedulesData.value.page - 1) * schedulesData.value.pageSize;
-                const res = await api.get(`/youtube/accounts/${currentAccount.value.id}/schedules?skip=${offset}&limit=${schedulesData.value.pageSize}`);
-                schedulesData.value.items = res.data.items;
-                schedulesData.value.total = res.data.total;
-            } catch (e) {
-                console.error(e);
-            }
-        };
-
-        const openAccountDetails = async (acc) => {
-            currentAccount.value = acc;
-            materialsData.value.page = 1;
-            schedulesData.value.page = 1;
-            await Promise.all([fetchAccountMaterials(), fetchAccountSchedules()]);
-            setView('account_details');
-        };
-
-        const handleMaterialsPageChange = async (newPage) => {
-            if (newPage < 1 || newPage > Math.ceil(materialsData.value.total / materialsData.value.pageSize)) return;
-            materialsData.value.page = newPage;
-            await fetchAccountMaterials();
-        };
-
-        const handleMaterialsPageSizeChange = async () => {
-            materialsData.value.page = 1;
-            await fetchAccountMaterials();
-        };
-
-        const handleSchedulesPageChange = async (newPage) => {
-             if (newPage < 1 || newPage > Math.ceil(schedulesData.value.total / schedulesData.value.pageSize)) return;
-            schedulesData.value.page = newPage;
-            await fetchAccountSchedules();
-        };
-
-        const handleSchedulesPageSizeChange = async () => {
-            schedulesData.value.page = 1;
-            await fetchAccountSchedules();
-        };
-
-        const goBackToAccounts = () => {
-            currentAccount.value = null;
-            setView('accounts');
-        };
-
-        // Materials
-        const openMaterials = async (acc) => {
-            // Deprecated logic compatible with new API, just in case
-            selectedAccount.value = acc;
-            const res = await api.get(`/youtube/accounts/${acc.id}/materials?skip=0&limit=100`);
-            currentMaterials.value = res.data.items;
-            showMaterialsModal.value = true;
-        };
-
-        const createMaterial = async () => {
-            if (!selectedAccount.value && !currentAccount.value) return;
-            const accId = selectedAccount.value ? selectedAccount.value.id : currentAccount.value.id;
-            
-            try {
-                await api.post(`/youtube/accounts/${accId}/materials`, newMaterial.value);
-                
-                if (currentView.value === 'account_details') {
-                    // Refresh paginated list
-                    await fetchAccountMaterials();
-                } else {
-                    // Refresh modal list
-                    const res = await api.get(`/youtube/accounts/${accId}/materials?skip=0&limit=100`);
-                    currentMaterials.value = res.data.items;
-                }
-                
-                // Reset form
-                newMaterial.value = { group_name: '', material_type: 'shorts', title_template: '', description_template: '', tags: '' };
-                // Close modal if open
-                showMaterialsModal.value = false;
-            } catch (e) {
-                alert(e.response?.data?.detail || t('alerts.add_material_failed'));
-            }
-        };
-
-        // Schedules
-        const openSchedules = async (acc) => {
-            selectedAccount.value = acc;
-            // We need materials to populate dropdown
-            const matRes = await api.get(`/youtube/accounts/${acc.id}/materials?skip=0&limit=100`);
-            currentMaterials.value = matRes.data.items;
-            
-            const res = await api.get(`/youtube/accounts/${acc.id}/schedules?skip=0&limit=100`);
-            currentSchedules.value = res.data.items;
-            showSchedulesModal.value = true;
-        };
-
         const createSchedule = async () => {
             if (!selectedAccount.value && !currentAccount.value) return;
             const accId = selectedAccount.value ? selectedAccount.value.id : currentAccount.value.id;
 
             try {
-                await api.post(`/youtube/accounts/${accId}/schedules`, {
+                const { type, interval, time, weekdays, monthDay } = scheduleForm.value;
+                
+                const payload = {
                     material_config_id: newSchedule.value.material_config_id,
-                    cron_expression: generateCron.value,
+                    schedule_type: type,
                     is_active: true
-                });
+                };
+
+                if (type === 'interval') {
+                    payload.interval_value = interval.value;
+                    payload.interval_unit = interval.unit;
+                } else if (type === 'daily') {
+                    payload.run_time = time;
+                } else if (type === 'weekly') {
+                    payload.run_time = time;
+                    payload.weekdays = weekdays.join(',');
+                } else if (type === 'monthly') {
+                    payload.run_time = time;
+                    payload.month_day = monthDay;
+                }
+
+                await api.post(`/youtube/accounts/${accId}/schedules`, payload);
                 
                 if (currentView.value === 'account_details') {
                     await fetchAccountSchedules();
@@ -853,12 +887,13 @@ createApp({
                     currentSchedules.value = res.data.items;
                 }
 
-                newSchedule.value.cron_expression = '';
+                // Reset form?
                 showSchedulesModal.value = false;
             } catch (e) {
                 alert(e.response?.data?.detail || t('alerts.create_schedule_failed'));
             }
         };
+
 
         const deleteSchedule = async (id) => {
             if (!confirm(t('alerts.confirm_delete'))) return;
@@ -911,7 +946,7 @@ createApp({
         };
 
         const setLocale = (lang) => {
-            i18n.global.locale.value = lang; // 在 legacy: false 模式下，locale 是 ref
+            i18n.global.locale.value = lang;
         };
 
         // Init
@@ -963,7 +998,7 @@ createApp({
             upgradeLevelName,
             setLocale,
             // Expose i18n current locale to check active state
-            currentLocale: computed(() => i18n.global.locale.value) // 更新 legacy: false 模式下的读取方式
+            currentLocale: computed(() => i18n.global.locale.value)
         };
     }
 }).use(i18n).mount('#app');
