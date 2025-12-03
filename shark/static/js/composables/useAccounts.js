@@ -34,15 +34,19 @@ export function useAccounts(t, showToastMessage) {
     };
 
     const createAccount = async () => {
-        if (!newAccountName.value || !newAccountClientSecret.value || !newAccountToken.value) {
-            alert('Please fill all fields');
+        if (!newAccountName.value) {
+            alert('Please enter a username');
             return;
         }
 
         const formData = new FormData();
         formData.append('desired_username', newAccountName.value);
-        formData.append('client_secret_file', newAccountClientSecret.value);
-        formData.append('token_file', newAccountToken.value);
+        if (newAccountClientSecret.value) {
+            formData.append('client_secret_file', newAccountClientSecret.value);
+        }
+        if (newAccountToken.value) {
+            formData.append('token_file', newAccountToken.value);
+        }
 
         try {
             const res = await api.post('/youtube/accounts', formData);
@@ -98,14 +102,18 @@ export function useAccounts(t, showToastMessage) {
     };
 
     const updateAuth = async () => {
-        if (!updateAuthClientSecret.value || !updateAuthToken.value) {
-            alert('Please select both files');
+        if (!updateAuthClientSecret.value && !updateAuthToken.value) {
+            alert('Please select at least one file to update');
             return;
         }
         
         const formData = new FormData();
-        formData.append('client_secret_file', updateAuthClientSecret.value);
-        formData.append('token_file', updateAuthToken.value);
+        if (updateAuthClientSecret.value) {
+            formData.append('client_secret_file', updateAuthClientSecret.value);
+        }
+        if (updateAuthToken.value) {
+            formData.append('token_file', updateAuthToken.value);
+        }
 
         try {
             await api.put(`/youtube/accounts/${currentAccount.value.id}/auth`, formData);

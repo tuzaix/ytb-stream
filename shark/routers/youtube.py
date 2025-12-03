@@ -1,7 +1,7 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from ..database import get_db
 from ..models import User, YoutubeAccount, MaterialConfig, UploadSchedule, ScheduleType, IntervalUnit
 from ..schemas import (
@@ -32,8 +32,8 @@ def save_auth_file(account_name: str, filename: str, content: bytes):
 @router.post("/accounts", response_model=YoutubeAccountOut)
 async def create_youtube_account(
     desired_username: str = Form(...),
-    client_secret_file: UploadFile = File(...),
-    token_file: UploadFile = File(...),
+    client_secret_file: Optional[UploadFile] = File(None),
+    token_file: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_active_user), 
     db: Session = Depends(get_db)
 ):
@@ -53,17 +53,21 @@ async def create_youtube_account(
         raise HTTPException(status_code=400, detail="Account name already exists")
 
     # Read file contents
+    client_secret_str = None
+    token_str = None
+    
     try:
-        client_secret_content = await client_secret_file.read()
-        token_content = await token_file.read()
-        
-        # Ensure they are valid strings (utf-8)
-        client_secret_str = client_secret_content.decode("utf-8")
-        token_str = token_content.decode("utf-8")
-        
-        # Save files to configured directory
-        save_auth_file(desired_username, "client_secret.json", client_secret_content)
-        save_auth_file(desired_username, "token.json", token_content)
+        if client_secret_file:
+            client_secret_content = await client_secret_file.read()
+            # Ensure they are valid strings (utf-8)
+            client_secret_str = client_secret_content.decode("utf-8")
+            # Save files to configured directory
+            save_auth_file(desired_username, "client_secret.json", client_secret_content)
+            
+        if token_file:
+            token_content = await token_file.read()
+            token_str = token_content.decode("utf-8")
+            save_auth_file(desired_username, "token.json", token_content)
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid file content or write error: {str(e)}")
@@ -111,8 +115,8 @@ def list_youtube_accounts(current_user: User = Depends(get_current_active_user))
 @router.put("/accounts/{account_id}/auth", response_model=YoutubeAccountOut)
 async def update_youtube_account_auth(
     account_id: int,
-    client_secret_file: UploadFile = File(...),
-    token_file: UploadFile = File(...),
+    client_secret_file: Optional[UploadFile] = File(None),
+    token_file: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -122,22 +126,22 @@ async def update_youtube_account_auth(
 
     # Read file contents
     try:
-        client_secret_content = await client_secret_file.read()
-        token_content = await token_file.read()
-        
-        # Ensure they are valid strings (utf-8)
-        client_secret_str = client_secret_content.decode("utf-8")
-        token_str = token_content.decode("utf-8")
-        
-        # Save files to configured directory (overwrite existing)
-        save_auth_file(account.account_name, "client_secret.json", client_secret_content)
-        save_auth_file(account.account_name, "token.json", token_content)
+        if client_secret_file:
+            client_secret_content = await client_secret_file.read()
+            # Ensure they are valid strings (utf-8)
+            client_secret_str = client_secret_content.decode("utf-8")
+            # Save files to configured directory (overwrite existing)
+            save_auth_file(account.account_name, "client_secret.json", client_secret_content)
+            account.client_secret_content = client_secret_str
+            
+        if token_file:
+            token_content = await token_file.read()
+            token_str = token_content.decode("utf-8")
+            save_auth_file(account.account_name, "token.json", token_content)
+            account.token_content = token_str
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid file content or write error: {str(e)}")
-
-    account.client_secret_content = client_secret_str
-    account.token_content = token_str
     
     db.commit()
     db.refresh(account)
@@ -187,6 +191,15 @@ def delete_youtube_account(
         print(f"Failed to delete account directory {account.account_name}: {e}")
 
     # Delete related records (Schedules first, then MaterialConfigs, then Account) to avoid FK constraints
+    
+    # Remove jobs from scheduler first
+    schedules = db.query(UploadSchedule).filter(UploadSchedule.youtube_account_id == account.id).all()
+    for schedule in schedules:
+        try:
+            scheduler_service.remove_job(schedule.id)
+        except Exception as e:
+            print(f"Error removing job {schedule.id}: {e}")
+
     db.query(UploadSchedule).filter(UploadSchedule.youtube_account_id == account.id).delete()
     db.query(MaterialConfig).filter(MaterialConfig.youtube_account_id == account.id).delete()
 
