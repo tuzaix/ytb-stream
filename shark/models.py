@@ -53,6 +53,12 @@ class User(Base):
     youtube_accounts = relationship("YoutubeAccount", back_populates="user")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class AccountStatus(str, enum.Enum):
+    PENDING = "pending"  # 待创建
+    WAIT_SECRET_UPLOADED = "wait_secret_uploaded"  # 待上传secret文件
+    ACTIVE = "active"  # 生效中
+    OFFLINE = "offline"  # 下线
+
 class YoutubeAccount(Base):
     __tablename__ = "youtube_accounts"
 
@@ -68,7 +74,9 @@ class YoutubeAccount(Base):
     token_content = Column(Text, nullable=True)
     
     # Status
-    is_active = Column(Boolean, default=True)
+    status = Column(String(20), default=AccountStatus.PENDING.value)
+    machine_ip = Column(String(50), nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="youtube_accounts")

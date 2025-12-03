@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..database import get_db
-from ..models import User, YoutubeAccount, MaterialConfig, UploadSchedule, ScheduleType, IntervalUnit
+from ..models import User, YoutubeAccount, MaterialConfig, UploadSchedule, ScheduleType, IntervalUnit, AccountStatus
 from ..schemas import (
     YoutubeAccountCreate, YoutubeAccountOut, 
     MaterialConfigCreate, MaterialConfigOut, PaginatedMaterialConfigOut,
@@ -13,8 +13,14 @@ from .auth import get_current_user, get_current_active_user
 from ..services.ftp_service import ftp_service
 from ..services.scheduler_service import scheduler_service
 from ..config import config
+import secrets
+import string
 
 router = APIRouter(prefix="/youtube", tags=["youtube"])
+
+def generate_password(length=12):
+    chars = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(chars) for _ in range(length))
 
 def save_auth_file(account_name: str, filename: str, content: bytes):
     """Save auth file to configured upload directory"""
@@ -72,19 +78,12 @@ async def create_youtube_account(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid file content or write error: {str(e)}")
 
-    # Create FTP User
-    try:
-        # Use membership details for quota and speed
-        quota_mb = current_user.membership.ftp_storage_mb
-        speed_kbps = current_user.membership.ftp_speed_kbps
-        
-        ftp_password = ftp_service.create_user(
-            username=desired_username,
-            quota_mb=quota_mb,
-            speed_kbps=speed_kbps
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create FTP user: {str(e)}")
+    # Determine status and password
+    # Always set to PENDING initially. The worker will pick it up, create FTP, and then check for secrets.
+    initial_status = AccountStatus.PENDING.value
+    
+    # Generate password (will be used when account is activated)
+    ftp_password = generate_password()
 
     # Save to DB
     new_account = YoutubeAccount(
@@ -92,7 +91,8 @@ async def create_youtube_account(
         account_name=desired_username,
         ftp_password=ftp_password,
         client_secret_content=client_secret_str,
-        token_content=token_str
+        token_content=token_str,
+        status=initial_status
     )
     db.add(new_account)
     db.commit()
@@ -140,6 +140,11 @@ async def update_youtube_account_auth(
             save_auth_file(account.account_name, "token.json", token_content)
             account.token_content = token_str
         
+        # Update status if files are present
+        # If status is PENDING, we leave it as PENDING so worker can process it.
+        if account.status != AccountStatus.PENDING.value and (account.client_secret_content or account.token_content):
+             account.status = AccountStatus.ACTIVE.value
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid file content or write error: {str(e)}")
     

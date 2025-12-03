@@ -140,7 +140,8 @@ class YoutubeAccountOut(YoutubeAccountBase):
     ftp_password: str # Show password once or always? Requirement implies providing it.
     ftp_host: Optional[str] = None
     ftp_port: Optional[int] = None
-    is_active: bool
+    status: str
+    machine_ip: Optional[str] = None
     created_at: datetime
     material_configs: List[MaterialConfigOut] = []
     schedules: List[ScheduleOut] = []

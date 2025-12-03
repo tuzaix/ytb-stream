@@ -98,10 +98,14 @@ export const messages = {
                 account_user: 'Account / FTP User',
                 youtube_link: 'YouTube Link',
                 status: 'Status',
+                machine_ip: 'Machine IP',
                 actions: 'Actions'
             },
             status: {
-                active: 'Active'
+                active: 'Active',
+                pending: 'Pending',
+                wait_secret_uploaded: 'Wait Secret Upload',
+                offline: 'Offline'
             },
             materials_btn: 'Materials',
             schedules_btn: 'Schedules',
@@ -320,10 +324,14 @@ export const messages = {
                 account_user: '账号 / FTP 用户',
                 youtube_link: 'YouTube 链接',
                 status: '状态',
+                machine_ip: '机器 IP',
                 actions: '操作'
             },
             status: {
-                active: '生效中'
+                active: '生效中',
+                pending: '待创建',
+                wait_secret_uploaded: '待上传secret文件',
+                offline: '下线'
             },
             materials_btn: '素材库',
             schedules_btn: '定时任务',

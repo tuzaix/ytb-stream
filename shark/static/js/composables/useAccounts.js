@@ -121,6 +121,7 @@ export function useAccounts(t, showToastMessage) {
             showUpdateAuthModal.value = false;
             updateAuthClientSecret.value = null;
             updateAuthToken.value = null;
+            await fetchAccounts();
         } catch (e) {
             alert(e.response?.data?.detail || 'Failed to update auth config');
         }

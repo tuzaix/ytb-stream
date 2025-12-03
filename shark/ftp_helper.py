@@ -1,6 +1,7 @@
 import os
 import secrets
 import string
+from ftplib import FTP, error_perm
 
 # -------------------------- 配置常量 ---------------------------
 FTP_BASE = "/home/ftp"
@@ -206,6 +207,49 @@ fi
 echo "用户 $TARGET_USER 已删除。"
 """
     return script
+
+class FtpDirHelper:
+    @staticmethod
+    def create_nested_dirs(host, username, password, remote_path):
+        """
+        Recursively create directories on the FTP server.
+        :param host: FTP server IP
+        :param username: FTP username
+        :param password: FTP password
+        :param remote_path: The full path of the directory to be created
+        """
+        ftp = FTP()
+        try:
+            ftp.connect(host)
+            ftp.login(username, password)
+            
+            dirs = [d for d in remote_path.split('/') if d]
+            current_path = ""
+
+            for d in dirs:
+                current_path = f"{current_path}/{d}"
+                try:
+                    ftp.cwd(current_path)
+                except error_perm:
+                    try:
+                        ftp.mkd(current_path)
+                        ftp.cwd(current_path)
+                        print(f"Created directory: {current_path}")
+                    except error_perm as e:
+                        print(f"Failed to create directory {current_path}: {e}")
+                        return False
+            return True
+        except Exception as e:
+            print(f"FTP Operation Failed: {e}")
+            return False
+        finally:
+            try:
+                ftp.quit()
+            except:
+                try:
+                    ftp.close()
+                except:
+                    pass
 
 if __name__ == "__main__":
     # 测试生成
