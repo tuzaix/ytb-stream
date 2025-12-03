@@ -76,6 +76,7 @@ class UserUpdateAdmin(BaseModel):
 class MaterialConfigBase(BaseModel):
     group_name: str
     material_type: MaterialType
+    video_source_dir: Optional[str] = None
     title_template: Optional[str] = None
     description_template: Optional[str] = None
     tags: Optional[str] = None

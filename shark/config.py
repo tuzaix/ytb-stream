@@ -25,5 +25,9 @@ class Config:
     
     # File Storage
     UPLOAD_DIR = r"d:\develop\ytb-stream\shark_uploads"
+    
+    # FTP Root (Template)
+    # format: {username} is the User.username, {account_name} is YoutubeAccount.account_name
+    BASE_FTP_HOME = "/home/ftp/{username}/{account_name}"
 
 config = Config()

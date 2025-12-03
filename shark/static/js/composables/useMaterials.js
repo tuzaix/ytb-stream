@@ -6,8 +6,9 @@ export function useMaterials(t, showToastMessage, fetchAccountSchedulesCallback)
     const showMaterialsModal = ref(false);
     const selectedAccount = ref(null); // Used when opening from accounts list
     const currentMaterials = ref([]); // Used for modal list
-    const newMaterial = ref({ group_name: '', material_type: 'shorts', title_template: '', description_template: '', tags: '' });
+    const newMaterial = ref({ group_name: '', material_type: 'shorts', video_source_dir: '', title_template: '', description_template: '', tags: '' });
     const selectedMaterialConfigId = ref(null);
+    const availableDirectories = ref([]);
 
     const fetchAccountMaterials = async (accountId) => {
         if (!accountId) return;
@@ -23,6 +24,13 @@ export function useMaterials(t, showToastMessage, fetchAccountSchedulesCallback)
 
     const openMaterials = async (acc) => {
          selectedAccount.value = acc;
+         try {
+             const res = await api.get(`/youtube/accounts/${acc.id}/directories`);
+             availableDirectories.value = res.data;
+         } catch (e) {
+             console.error('Failed to fetch directories', e);
+             availableDirectories.value = [];
+         }
          showMaterialsModal.value = true;
     };
 
@@ -42,7 +50,7 @@ export function useMaterials(t, showToastMessage, fetchAccountSchedulesCallback)
             showMaterialsModal.value = false;
             
             // Clear form
-            newMaterial.value = { group_name: '', material_type: 'shorts', title_template: '', description_template: '', tags: '' };
+            newMaterial.value = { group_name: '', material_type: 'shorts', video_source_dir: '', title_template: '', description_template: '', tags: '' };
             
             showToastMessage(t('alerts.add_success'));
         } catch (e) {
@@ -82,6 +90,7 @@ export function useMaterials(t, showToastMessage, fetchAccountSchedulesCallback)
         currentMaterials,
         newMaterial,
         selectedMaterialConfigId,
+        availableDirectories,
         fetchAccountMaterials,
         openMaterials,
         createMaterial,

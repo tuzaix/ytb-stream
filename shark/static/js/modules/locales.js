@@ -177,6 +177,8 @@ export const messages = {
                 desc_placeholder: 'Description Template',
                 tags_placeholder: 'Tags (comma separated)',
                 title_template: 'Title Template',
+                video_dir: 'Video Source Directory',
+                select_dir: 'Select Directory',
                 add_btn: 'Add Material',
                 empty: 'No materials configured.'
             },
@@ -396,6 +398,8 @@ export const messages = {
                 desc_placeholder: '描述模板',
                 tags_placeholder: '标签 (逗号分隔)',
                 title_template: '标题模板',
+                video_dir: '视频素材目录',
+                select_dir: '选择目录',
                 add_btn: '添加素材',
                 empty: '暂无素材配置。'
             },

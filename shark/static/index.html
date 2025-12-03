@@ -595,6 +595,13 @@
                             <option value="long">{{ $t('common.long') }}</option>
                         </select>
                     </div>
+                    <div class="mb-2">
+                         <label class="block text-xs font-bold mb-1 text-gray-600">{{ $t('modal.materials.video_dir') }}</label>
+                         <select v-model="newMaterial.video_source_dir" class="w-full border p-2 rounded text-sm">
+                             <option value="" disabled>{{ $t('modal.materials.select_dir') }}</option>
+                             <option v-for="dir in availableDirectories" :key="dir" :value="dir">{{ dir }}</option>
+                         </select>
+                    </div>
                     <input v-model="newMaterial.title_template" :placeholder="$t('modal.materials.title_template')" class="w-full border p-2 rounded mb-2 text-sm">
                     <textarea v-model="newMaterial.description_template" :placeholder="$t('modal.materials.desc_placeholder')" class="w-full border p-2 rounded mb-2 text-sm" rows="2"></textarea>
                     <input v-model="newMaterial.tags" :placeholder="$t('modal.materials.tags_placeholder')" class="w-full border p-2 rounded mb-4 text-sm">
@@ -766,6 +773,6 @@
         }
     </style>
 
-    <script type="module" src="/static/js/app.js?v=1.11"></script>
+    <script type="module" src="/static/js/app.js?v=1.13"></script>
 </body>
 </html>

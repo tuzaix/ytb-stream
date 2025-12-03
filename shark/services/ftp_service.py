@@ -79,4 +79,43 @@ class FTPService:
         else:
             print("[FTP Service] Windows detected. Skipping actual user deletion.")
 
+    def get_base_path(self, username: str, account_name: str) -> str:
+        path_template = config.BASE_FTP_HOME
+        # Resolve logical path
+        logical_path = path_template.format(username=username, account_name=account_name)
+        
+        if platform.system() == "Windows":
+            # Map /home/ftp to local ftp_root for development
+            project_root = r"d:\develop\ytb-stream"
+            local_root = os.path.join(project_root, "ftp_root")
+            
+            # Extract subpath (remove /home/ftp/ prefix)
+            subpath = logical_path.replace("/home/ftp/", "").replace("/", os.sep)
+            return os.path.join(local_root, subpath)
+        
+        return logical_path
+
+    def list_directories(self, username: str, account_name: str) -> list[str]:
+        path = self.get_base_path(username, account_name)
+        
+        # Ensure directory exists for dev/mock purposes
+        if not os.path.exists(path):
+            try:
+                os.makedirs(path, exist_ok=True)
+                # Create dummy dirs if empty
+                if not os.listdir(path):
+                    os.makedirs(os.path.join(path, "shorts_demo"), exist_ok=True)
+                    os.makedirs(os.path.join(path, "long_demo"), exist_ok=True)
+            except Exception as e:
+                print(f"Error creating/mocking directory {path}: {e}")
+                return []
+
+        try:
+            items = os.listdir(path)
+            dirs = [d for d in items if os.path.isdir(os.path.join(path, d))]
+            return dirs
+        except Exception as e:
+            print(f"Error listing directories in {path}: {e}")
+            return []
+
 ftp_service = FTPService()

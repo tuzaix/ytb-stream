@@ -148,6 +148,18 @@ async def update_youtube_account_auth(
     
     return account
 
+@router.get("/accounts/{account_id}/directories", response_model=List[str])
+def list_account_directories(
+    account_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    account = db.query(YoutubeAccount).filter(YoutubeAccount.id == account_id, YoutubeAccount.user_id == current_user.id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    
+    return ftp_service.list_directories(current_user.username, account.account_name)
+
 @router.delete("/accounts/{account_id}", status_code=204)
 def delete_youtube_account(
     account_id: int,
@@ -199,6 +211,7 @@ def create_material_config(
         youtube_account_id=account.id,
         group_name=config_in.group_name,
         material_type=config_in.material_type,
+        video_source_dir=config_in.video_source_dir,
         title_template=config_in.title_template,
         description_template=config_in.description_template,
         tags=config_in.tags,

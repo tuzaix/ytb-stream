@@ -1,4 +1,4 @@
-import { i18n } from './modules/i18n.js?v=1.2';
+import { i18n } from './modules/i18n.js?v=1.3';
 import { setupApiInterceptors } from './modules/api.js';
 import { useAuth } from './composables/useAuth.js';
 import { useAccounts } from './composables/useAccounts.js';

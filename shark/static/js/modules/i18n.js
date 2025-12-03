@@ -1,4 +1,4 @@
-import { messages } from './locales.js?v=1.2';
+import { messages } from './locales.js?v=1.3';
 
 const { createI18n } = VueI18n;
 

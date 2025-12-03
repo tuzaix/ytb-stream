@@ -87,6 +87,7 @@ class MaterialConfig(Base):
     
     group_name = Column(String(50), nullable=False) # To identify the config group
     material_type = Column(String(20), default=MaterialType.SHORTS) # shorts or long
+    video_source_dir = Column(String(255), nullable=True) # Directory path for video source
     
     # Content Templates
     title_template = Column(Text, nullable=True)
