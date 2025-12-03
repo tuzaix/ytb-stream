@@ -30,4 +30,8 @@ class Config:
     # format: {username} is the User.username, {account_name} is YoutubeAccount.account_name
     BASE_FTP_HOME = "/home/ftp/{username}/{account_name}"
 
+    # YouTube Auth Files Path (Template)
+    # format: {username} is the User.username, {account_name} is YoutubeAccount.account_name
+    YOUTUBE_AUTH_FILES_HOME = "/home/youtube_auth_files/{username}/{account_name}"
+
 config = Config()
