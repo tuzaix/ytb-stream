@@ -143,6 +143,7 @@ export const messages = {
                 monthly: 'Monthly'
             },
             interval_label: 'Run every',
+            every: 'Every',
             units: {
                 minutes: 'Minutes',
                 hours: 'Hours'
@@ -364,6 +365,7 @@ export const messages = {
                 monthly: '每月'
             },
             interval_label: '执行间隔',
+            every: '每隔',
             units: {
                 minutes: '分钟',
                 hours: '小时'

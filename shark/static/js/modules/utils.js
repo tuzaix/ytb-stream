@@ -56,7 +56,7 @@ export const formatCron = (input, t) => {
         const { schedule_type, interval_value, interval_unit, run_time, weekdays, month_day } = input;
         
         if (schedule_type === 'interval') {
-             return t('cron_builder.types.interval') + ' ' + interval_value + ' ' + t('cron_builder.units.' + interval_unit);
+             return t('cron_builder.every') + ' ' + interval_value + ' ' + t('cron_builder.units.' + interval_unit);
         }
         if (schedule_type === 'daily') {
              return t('cron_builder.types.daily') + ' ' + run_time;
@@ -85,13 +85,13 @@ export const formatCron = (input, t) => {
         const parts = cron.split(' ');
         const minPart = parts[0];
         const val = minPart.replace('*/', '');
-        return t('cron_builder.types.interval') + ' ' + val + ' ' + t('cron_builder.units.minutes');
+        return t('cron_builder.every') + ' ' + val + ' ' + t('cron_builder.units.minutes');
     }
     if (cron.startsWith('0 */')) {
         const parts = cron.split(' ');
         const hourPart = parts[1];
         const val = hourPart.replace('*/', '');
-        return t('cron_builder.types.interval') + ' ' + val + ' ' + t('cron_builder.units.hours');
+        return t('cron_builder.every') + ' ' + val + ' ' + t('cron_builder.units.hours');
     }
     const parts = cron.split(' ');
     if (parts.length === 5) {

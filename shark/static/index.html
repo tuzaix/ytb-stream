@@ -618,7 +618,8 @@
                     <button @click="showSchedulesModal = false" class="text-gray-500"><i class="fa-solid fa-times"></i></button>
                 </div>
 
-                <!-- List Schedules -->
+                <!-- List Schedules (Hidden) -->
+                <!-- 
                 <div class="space-y-2 mb-6">
                     <div v-for="sch in currentSchedules" :key="sch.id" class="border p-3 rounded flex justify-between items-center">
                         <div>
@@ -629,6 +630,7 @@
                     </div>
                     <p v-if="currentSchedules.length === 0" class="text-gray-500 text-sm">{{ $t('modal.schedules.empty') }}</p>
                 </div>
+                -->
 
                 <!-- Add Schedule Form -->
                 <div class="border-t pt-4">
@@ -773,6 +775,6 @@
         }
     </style>
 
-    <script type="module" src="/static/js/app.js?v=1.13"></script>
+    <script type="module" src="/static/js/app.js?v=1.14"></script>
 </body>
 </html>

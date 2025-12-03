@@ -1,4 +1,4 @@
-import { i18n } from './modules/i18n.js?v=1.3';
+import { i18n } from './modules/i18n.js?v=1.4';
 import { setupApiInterceptors } from './modules/api.js';
 import { useAuth } from './composables/useAuth.js';
 import { useAccounts } from './composables/useAccounts.js';
@@ -7,7 +7,7 @@ import { useSchedules } from './composables/useSchedules.js';
 import { useAdmin } from './composables/useAdmin.js';
 import { useMembership } from './composables/useMembership.js';
 import { useProfile } from './composables/useProfile.js';
-import { formatCron, weekdaysOptions, copyToClipboard } from './modules/utils.js';
+import { formatCron, weekdaysOptions, copyToClipboard } from './modules/utils.js?v=1.1';
 
 const { createApp, ref, onMounted, computed, watch } = Vue;
 const { useI18n } = VueI18n;
