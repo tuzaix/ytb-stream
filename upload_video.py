@@ -1,6 +1,7 @@
 import os
 import random
 import shutil
+import re
 from typing import List, Optional, Tuple, Dict, Any
 from youtube.client import YouTubeClient
 from youtube.thumbnail import generate_stream_thumbnail, add_caption_to_image, get_video_duration
@@ -130,11 +131,40 @@ def resolve_thumbnail_for_video(
     return final_thumb, final_thumb_generated
 
 
+def clean_video_title(filename: str) -> str:
+    """Clean video title by removing extension, @mentions, dates, and extra spaces.
+
+    Args:
+        filename: The original video filename (with or without path).
+
+    Returns:
+        The cleaned title string.
+    """
+    # Get filename without extension and path
+    base_name = os.path.splitext(os.path.basename(filename))[0]
+    
+    # Remove '@' and the word following it (e.g. @username)
+    clean_name = re.sub(r'@[^\s]*', '', base_name)
+    
+    # Remove date patterns: YYYY-MM-DD, YYYY_MM_DD, or YYYYMMDD, plus optional separator
+    # Case 1: Separated (e.g. 2025-08-19)
+    clean_name = re.sub(r'\d{4}[-_]\d{2}[-_]\d{2}[-_\s]?', '', clean_name)
+    # Case 2: Continuous (e.g. 20250819)
+    clean_name = re.sub(r'\d{8}[-_\s]?', '', clean_name)
+    
+    # Collapse multiple spaces and strip
+    clean_name = re.sub(r'\s+', ' ', clean_name).strip()
+    # Remove leading/trailing non-word separators
+    clean_name = clean_name.strip('-_')
+    
+    return clean_name
+
+
 def upload_video_once(
     auth_dir: str,
     video_dirs: List[str],
-    title: str,
-    description: str,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
     privacy: str = "private",
     thumbnail: Optional[str] = None,
     thumbnail_caption: str = "",
@@ -185,6 +215,21 @@ def upload_video_once(
         raise RuntimeError(f"No video files found in {selected_dir}.")
     video_to_upload = os.path.join(selected_dir, random.choice(video_files))
     print(f"Selected video: {video_to_upload}")
+
+    # Handle empty title/description: use filename and tags
+    if not title or not description:
+        clean_name = clean_video_title(video_to_upload)
+        
+        tags_suffix = "#viral #shorts #douyin #tiktok"
+        
+        if not title:
+            title = f"{clean_name} {tags_suffix}"
+            print(f"Auto-filled title: {title}")
+            
+        if not description:
+            description = tags_suffix
+            print(f"Auto-filled description: {description}")
+
     final_thumb, final_thumb_generated = resolve_thumbnail_for_video(
         selected_dir,
         video_to_upload,
@@ -200,6 +245,8 @@ def upload_video_once(
         os.path.join(auth_dir, "token.json"),
     )
     video_tags = tags.split(",") if tags else None
+
+    print(f"Uploading video with title: {title} and description: {description}")
 
     uploaded_id, published_flag = client.upload_video(
         file_path=video_to_upload,

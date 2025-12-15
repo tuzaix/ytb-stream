@@ -72,14 +72,15 @@ def main() -> NoReturn:
     # Resolve account configuration
     account_cfg = YTB_ACCOUNT_MATERIAL_CONFIG.get(args.account)
     if not account_cfg:
-        raise SystemExit(f"Account '{args.account}' not found in YTB_ACCOUNT_MATERIAL_CONFIG.")
+        print("Warning: Account materials not found. Using default values.")
+        account_cfg = {}
 
     copywriting = pick_copywriting(account_cfg)
     title = copywriting.get("title", "")
     description = copywriting.get("description", "")
     tags_str = build_tags_string(account_cfg)
     caption = pick_caption(account_cfg)
-    published_flag = bool(account_cfg.get("published", False))
+    published_flag = bool(account_cfg.get("published", True))
 
     print(f"Account: {args.account}")
     print(f"Title: {title}")
