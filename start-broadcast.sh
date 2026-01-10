@@ -62,6 +62,18 @@ log_file=$LOG_DIR/broadcast-$CATEGORY-$thedate-$TIMESCOPE.$(date +%Y%m%d%H%M%S).
 
 # /home/ftp/UrbanGlamOutfits/live
 VIDEO_DIR=$base_dir/live/$thedate
+# cover 目录
+COVER_DIR=$base_dir/live_cover
+
+# 从目录 COVER_DIR 中随机获取一张cover图片文件
+
+cover_file=$(find "$COVER_DIR" -type f \( -name "*.jpg" -o -name "*.png" \) | shuf -n 1)
+# 检查 cover 文件是否存在
+if [ -z "$cover_file" ]; then
+    echo "错误: 未找到 cover 文件 (jpg 或 png 格式)。"
+    exit 1
+fi
+
 
 for file in "$VIDEO_DIR"/*.mp4 "$VIDEO_DIR"/*.ts; do
 	# 检查文件是否存在（防止目录中没有文件时报错）
@@ -70,8 +82,8 @@ for file in "$VIDEO_DIR"/*.mp4 "$VIDEO_DIR"/*.ts; do
 	    echo "*****************************************************"
 	    echo ">>>> 正在推流文件: $file"
 	    echo "*****************************************************"
-        echo --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --description "$DESCRIPTION" --duration "$the_duration" --privacy_status public
-		python $bin/upload_stream.py --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --description "$DESCRIPTION" --duration "$the_duration" --privacy_status public > $log_file 2>&1 
+        echo --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --description "$DESCRIPTION" --duration "$the_duration" --privacy_status public --thumbnail "$cover_file"
+		python $bin/upload_stream.py --auth_dir="$the_auth_dir" --video_file "$file" --title "$the_title" --description "$DESCRIPTION" --duration "$the_duration" --privacy_status public --thumbnail "$cover_file" > $log_file 2>&1 
 	    break
 	fi
 done
