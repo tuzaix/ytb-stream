@@ -8,11 +8,7 @@ source .venv/bin/activate
 
 LOG_DIR=/home/work/logs
 
-# ytb api 验证文件目录，不同直播账号有不同的目录，跟视频文件一样的命名逻辑
-base_auth_dir=/home/ftpuser_hostinger/files/auth_impt
 
-# 视频流的目录
-base_stream_dir=/home/ftpuser_hostinger/files/stream
 
 # 参数
 CATEGORY=$1    # 类型：cook, tetris等
@@ -53,16 +49,19 @@ else
     fi
 fi
 
+# 用户目录
+base_dir=/home/ftp/${CATEGORY}
 
 # 配置参数
-the_auth_dir=$base_auth_dir/$CATEGORY
+the_auth_dir=$base_dir/auth2.0
 #the_video_file=
 the_title=$THETITLE
 #the_duration
 #
 log_file=$LOG_DIR/broadcast-$CATEGORY-$thedate-$TIMESCOPE.$(date +%Y%m%d%H%M%S).log
 
-VIDEO_DIR=$base_stream_dir/$CATEGORY/$thedate-$TIMESCOPE
+# /home/ftp/UrbanGlamOutfits/live
+VIDEO_DIR=$base_dir/live/$thedate
 
 for file in "$VIDEO_DIR"/*.mp4 "$VIDEO_DIR"/*.ts; do
 	# 检查文件是否存在（防止目录中没有文件时报错）
