@@ -5,7 +5,7 @@
 bin=`dirname "$0"`
 bin=`cd $bin; pwd`
 
-title="🔴 LIVE 🔴 Trendy Chinese Street Fashion: Beautiful Girl Outfits & Styles 🔥🥀#shorts #viral #douyin #tiktok"
+title="🔴 LIVE 🔴 Trendy Chinese Street Fashion: Beautiful Girl Outfits & Styles 🔥🥀"
 description="Trendy Chinese Street Fashion: Beautiful Girl Outfits & Styles 🔥🥀#shorts #viral #douyin #tiktok"
 
 
