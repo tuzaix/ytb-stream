@@ -142,7 +142,12 @@ def main():
             print("Failed to generate thumbnail from video.")
             return None
 
-    thumbnail_path = prepare_thumbnail_with_caption(
+
+    # 如果传递了args.thumbnail封面的文件，则直接使用该文件作为封面
+    if args.thumbnail and os.path.exists(args.thumbnail):
+        thumbnail_path = args.thumbnail
+    else:
+        thumbnail_path = prepare_thumbnail_with_caption(
         args.video_file, args.thumbnail, args.thumbnail_caption, args.thumbnail_color
     )
 
