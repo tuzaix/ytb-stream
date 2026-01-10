@@ -22,7 +22,7 @@ duration=$2
 thedate=$3
 
 
-bash $bin/../start-broadcast.sh "FashionGrils" "$title" "$timescope" "$duration" "$thedate" "$description"
+bash $bin/../start-broadcast.sh "FashionGirls" "$title" "$timescope" "$duration" "$thedate" "$description"
 
 
 
