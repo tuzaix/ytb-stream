@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频发布管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        [v-cloak] { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="app" v-cloak>
+        <!-- Navigation -->
+        <nav v-if="token" class="bg-white shadow mb-6">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <h1 class="text-xl font-bold text-gray-800">视频发布管理系统</h1>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="mr-4 text-gray-600">管理员</span>
+                        <button @click="logout" class="text-red-600 hover:text-red-800">退出登录</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Login Screen -->
+        <div v-if="!token" class="flex items-center justify-center min-h-screen">
+            <div class="bg-white p-8 rounded shadow-md w-96">
+                <h2 class="text-2xl font-bold mb-6 text-center">系统登录</h2>
+                <form @submit.prevent="login">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">用户名</label>
+                        <input v-model="loginForm.username" type="text" class="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">密码</label>
+                        <input v-model="loginForm.password" type="password" class="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">登录</button>
+                    <p v-if="loginError" class="text-red-500 text-sm mt-2 text-center">{{ loginError }}</p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div v-else class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Header Actions -->
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">账号列表</h2>
+                <button @click="showCreateModal = true" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center">
+                    <span class="mr-2">+</span> 创建账号
+                </button>
+            </div>
+
+            <!-- Accounts Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div v-for="account in accounts" :key="account.name" class="bg-white rounded-lg shadow p-6 relative">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900">{{ account.name }}</h3>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button @click="deleteAccount(account.name)" class="text-gray-400 hover:text-red-500" title="删除账号">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Status Badges -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <span :class="['px-2 py-1 text-xs rounded-full', account.auth_files_uploaded ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800']">
+                            {{ account.auth_files_uploaded ? '认证已配置' : '未配置认证' }}
+                        </span>
+                        <span v-for="t in account.publish_times" :key="t" class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                            {{ t }}
+                        </span>
+                    </div>
+
+                    <div class="space-y-3">
+                         <!-- FTP Info -->
+                         <div class="bg-gray-50 p-3 rounded text-sm font-mono break-all border border-gray-200 space-y-1">
+                            <div class="flex">
+                                <span class="text-gray-500 w-20 flex-shrink-0 select-none">ftp ip：</span>
+                                <span class="select-all text-gray-800">{{ publicIp || '加载中...' }}</span>
+                            </div>
+                            <div class="flex">
+                                <span class="text-gray-500 w-20 flex-shrink-0 select-none">ftp账号：</span>
+                                <span class="select-all text-gray-800">{{ account.ftp_username }}</span>
+                            </div>
+                            <div class="flex">
+                                <span class="text-gray-500 w-20 flex-shrink-0 select-none">ftp密码：</span>
+                                <span class="select-all text-gray-800">{{ account.ftp_password }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="border-t pt-3 space-y-2">
+                            <button @click="openAuthModal(account)" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                                上传认证文件
+                            </button>
+                            <button @click="openCopywritingModal(account)" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                配置发布文案
+                            </button>
+                            <button @click="openScheduleModal(account)" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                增加发布时间
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        
+        <!-- Create Account Modal -->
+        <div v-if="showCreateModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-lg w-96">
+                <h3 class="text-lg font-bold mb-4">创建新账号</h3>
+                <div class="mb-4">
+                    <label class="block text-sm font-bold mb-1">账号名称</label>
+                    <input v-model="newAccount.name" type="text" class="w-full border p-2 rounded" placeholder="例如：MyChannel01">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-bold mb-1">账号描述</label>
+                    <textarea v-model="newAccount.description" class="w-full border p-2 rounded" placeholder="可选：输入账号描述信息" rows="3"></textarea>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button @click="showCreateModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">取消</button>
+                    <button @click="createAccount" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600" :disabled="isSubmitting">
+                        {{ isSubmitting ? '创建中...' : '创建' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Auth Modal -->
+        <div v-if="showAuthModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-lg w-96">
+                <h3 class="text-lg font-bold mb-4">上传认证文件</h3>
+                <p class="text-sm text-gray-500 mb-4">当前账号：{{ currentAccount.name }}</p>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-bold mb-1">client_secret.json</label>
+                    <input type="file" ref="clientSecretInput" accept=".json" class="w-full text-sm">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-bold mb-1">token.json</label>
+                    <input type="file" ref="tokenInput" accept=".json" class="w-full text-sm">
+                </div>
+                
+                <div class="flex justify-end space-x-2">
+                    <button @click="showAuthModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">取消</button>
+                    <button @click="uploadAuthFiles" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600" :disabled="isSubmitting">
+                        {{ isSubmitting ? '上传中...' : '上传' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Copywriting Modal -->
+        <div v-if="showCopywritingModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-lg w-[600px] max-h-[80vh] flex flex-col">
+                <h3 class="text-lg font-bold mb-4">配置发布文案</h3>
+                <p class="text-sm text-gray-500 mb-4">当前账号：{{ currentAccount.name }}</p>
+
+                <div class="flex-1 overflow-y-auto mb-4 space-y-4">
+                    <div v-for="(item, index) in copywritingForm" :key="index" class="border p-4 rounded relative bg-gray-50">
+                        <button @click="removeCopywritingItem(index)" class="absolute top-2 right-2 text-red-500 hover:text-red-700">x</button>
+                        <div class="mb-2">
+                            <label class="block text-xs font-bold text-gray-600">标题</label>
+                            <input v-model="item.title" type="text" class="w-full border p-1 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600">描述</label>
+                            <textarea v-model="item.description" rows="3" class="w-full border p-1 rounded text-sm"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center border-t pt-4">
+                    <button @click="addCopywritingItem" class="text-blue-500 hover:text-blue-700 font-bold">+ 添加文案组</button>
+                    <div class="space-x-2">
+                        <button @click="showCopywritingModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">取消</button>
+                        <button @click="saveCopywriting" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600" :disabled="isSubmitting">保存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedule Modal -->
+        <div v-if="showScheduleModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-lg w-80">
+                <h3 class="text-lg font-bold mb-4">增加发布时间</h3>
+                <div class="mb-4">
+                    <label class="block text-sm font-bold mb-1">发布时间 (HH:MM)</label>
+                    <div v-for="(t, idx) in scheduleForm.publish_times" :key="idx" class="flex items-center mb-2">
+                        <input v-model="scheduleForm.publish_times[idx]" type="time" class="flex-1 border p-2 rounded mr-2">
+                        <button @click="scheduleForm.publish_times.splice(idx, 1)" class="text-red-500 hover:text-red-700 font-bold" type="button">×</button>
+                    </div>
+                    <button @click="scheduleForm.publish_times.push('10:00')" class="text-sm text-blue-500 hover:text-blue-700" type="button">+ 添加时间</button>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button @click="showScheduleModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">取消</button>
+                    <button @click="saveSchedule" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600" :disabled="isSubmitting">保存</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const token = ref(localStorage.getItem('token'));
+                const accounts = ref([]);
+                const publicIp = ref('');
+                const loginForm = ref({ username: '', password: '' });
+                const loginError = ref('');
+                
+                // Modals state
+                const showCreateModal = ref(false);
+                const showAuthModal = ref(false);
+                const showCopywritingModal = ref(false);
+                const showScheduleModal = ref(false);
+                const isSubmitting = ref(false);
+
+                // Forms data
+                const newAccount = ref({ name: '', publish_time: '10:00' });
+                const currentAccount = ref(null);
+                const clientSecretInput = ref(null);
+                const tokenInput = ref(null);
+                const copywritingForm = ref([]);
+                const scheduleForm = ref({ publish_times: [] });
+
+                // API Client
+                const api = axios.create({
+                    baseURL: window.location.origin, // Assuming served from same origin
+                });
+
+                api.interceptors.request.use(config => {
+                    if (token.value) {
+                        config.headers.Authorization = `Bearer ${token.value}`;
+                    }
+                    return config;
+                });
+
+                api.interceptors.response.use(
+                    response => response,
+                    error => {
+                        if (error.response && error.response.status === 401) {
+                            logout();
+                        }
+                        return Promise.reject(error);
+                    }
+                );
+
+                const login = async () => {
+                    loginError.value = '';
+                    try {
+                        const formData = new FormData();
+                        formData.append('username', loginForm.value.username);
+                        formData.append('password', loginForm.value.password);
+                        const res = await api.post('/token', formData);
+                        token.value = res.data.access_token;
+                        localStorage.setItem('token', token.value);
+                        fetchAccounts();
+                        fetchSystemInfo();
+                    } catch (e) {
+                        loginError.value = '用户名或密码错误';
+                    }
+                };
+
+                const logout = () => {
+                    token.value = null;
+                    localStorage.removeItem('token');
+                    accounts.value = [];
+                    publicIp.value = '';
+                };
+
+                const fetchSystemInfo = async () => {
+                    if (!token.value) return;
+                    try {
+                        const res = await api.get('/system/info');
+                        publicIp.value = res.data.public_ip;
+                    } catch (e) {
+                        console.error("Failed to fetch system info", e);
+                    }
+                };
+
+                const fetchAccounts = async () => {
+                    if (!token.value) return;
+                    try {
+                        const res = await api.get('/accounts');
+                        accounts.value = res.data;
+                    } catch (e) {
+                        console.error(e);
+                    }
+                };
+
+                const createAccount = async () => {
+                    if (!newAccount.value.name) return;
+                    isSubmitting.value = true;
+                    try {
+                        await api.post('/accounts', newAccount.value);
+                        showCreateModal.value = false;
+                        newAccount.value = { name: '', publish_times: [] };
+                        fetchAccounts();
+                    } catch (e) {
+                        alert('创建账号失败: ' + (e.response?.data?.detail || e.message));
+                    } finally {
+                        isSubmitting.value = false;
+                    }
+                };
+
+                const deleteAccount = async (name) => {
+                    if (!confirm(`确认删除该账号 ${name}?`)) return;
+                    try {
+                        await api.delete(`/accounts/${name}`);
+                        fetchAccounts();
+                    } catch (e) {
+                        alert('删除失败');
+                    }
+                };
+
+                // Auth Modal Logic
+                const openAuthModal = (account) => {
+                    currentAccount.value = account;
+                    showAuthModal.value = true;
+                };
+
+                const uploadAuthFiles = async () => {
+                    const secretFile = clientSecretInput.value.files[0];
+                    const tokenFile = tokenInput.value.files[0];
+                    
+                    if (!secretFile || !tokenFile) {
+                        alert('请选择两个文件');
+                        return;
+                    }
+
+                    isSubmitting.value = true;
+                    const formData = new FormData();
+                    formData.append('client_secret', secretFile);
+                    formData.append('token', tokenFile);
+
+                    try {
+                        await api.post(`/accounts/${currentAccount.value.name}/auth`, formData);
+                        showAuthModal.value = false;
+                        fetchAccounts();
+                    } catch (e) {
+                        alert('上传失败');
+                    } finally {
+                        isSubmitting.value = false;
+                    }
+                };
+
+                // Copywriting Modal Logic
+                const openCopywritingModal = (account) => {
+                    currentAccount.value = account;
+                    // Deep copy to avoid mutating direct list
+                    copywritingForm.value = JSON.parse(JSON.stringify(account.copywriting_groups || []));
+                    showCopywritingModal.value = true;
+                };
+
+                const addCopywritingItem = () => {
+                    copywritingForm.value.push({ title: '', description: '' });
+                };
+
+                const removeCopywritingItem = (index) => {
+                    copywritingForm.value.splice(index, 1);
+                };
+
+                const saveCopywriting = async () => {
+                    isSubmitting.value = true;
+                    try {
+                        await api.put(`/accounts/${currentAccount.value.name}/copywriting`, {
+                            copywriting_groups: copywritingForm.value
+                        });
+                        showCopywritingModal.value = false;
+                        fetchAccounts();
+                    } catch (e) {
+                        alert('保存失败');
+                    } finally {
+                        isSubmitting.value = false;
+                    }
+                };
+
+                // Schedule Modal Logic
+                const openScheduleModal = (account) => {
+                    currentAccount.value = account;
+                    scheduleForm.value = { 
+                        publish_times: JSON.parse(JSON.stringify(account.publish_times || [])) 
+                    };
+                    if (scheduleForm.value.publish_times.length === 0) {
+                        scheduleForm.value.publish_times.push('10:00');
+                    }
+                    showScheduleModal.value = true;
+                };
+
+                const saveSchedule = async () => {
+                    const times = scheduleForm.value.publish_times.filter(t => t);
+                    
+                    if (times.length === 0) {
+                        alert('请至少保留一个有效时间');
+                        return;
+                    }
+
+                    // Check duplicate in the list itself
+                    const uniqueTimes = new Set(times);
+                    if (uniqueTimes.size !== times.length) {
+                        alert('列表中存在重复的时间，请检查');
+                        return;
+                    }
+
+                    isSubmitting.value = true;
+                    try {
+                        await api.put(`/accounts/${currentAccount.value.name}/schedule`, {
+                            publish_times: times
+                        });
+                        showScheduleModal.value = false;
+                        fetchAccounts();
+                    } catch (e) {
+                        alert('保存失败');
+                    } finally {
+                        isSubmitting.value = false;
+                    }
+                };
+
+                onMounted(() => {
+                    if (token.value) {
+                        fetchAccounts();
+                        fetchSystemInfo();
+                    }
+                });
+
+                return {
+                    token,
+                    accounts,
+                    publicIp,
+                    loginForm,
+                    loginError,
+                    login,
+                    logout,
+                    showCreateModal,
+                    newAccount,
+                    createAccount,
+                    deleteAccount,
+                    showAuthModal,
+                    currentAccount,
+                    clientSecretInput,
+                    tokenInput,
+                    uploadAuthFiles,
+                    showCopywritingModal,
+                    copywritingForm,
+                    addCopywritingItem,
+                    removeCopywritingItem,
+                    saveCopywriting,
+                    showScheduleModal,
+                    scheduleForm,
+                    saveSchedule,
+                    openAuthModal,
+                    openCopywritingModal,
+                    openScheduleModal,
+                    isSubmitting
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
