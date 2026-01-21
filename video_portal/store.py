@@ -4,7 +4,9 @@ import shutil
 from typing import List, Dict, Optional
 from json import JSONDecodeError
 from models import Account
+import settings
 
+# 系统元数据的目录
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 ACCOUNTS_FILE = os.path.join(DATA_DIR, "accounts.json")
 
@@ -40,7 +42,7 @@ def delete_account(name: str):
     accounts = load_accounts()
     if name in accounts:
         # Remove account directory
-        account_dir = os.path.join(DATA_DIR, "accounts", name)
+        account_dir = os.path.join(settings.FTP_ROOT_DIR, name)
         if os.path.exists(account_dir):
             try:
                 shutil.rmtree(account_dir)
@@ -76,7 +78,7 @@ def _save_all(accounts: Dict[str, Account]):
         raise e
 
 def get_account_auth_dir(account_name: str) -> str:
-    path = os.path.join(DATA_DIR, "accounts", account_name)
+    path = os.path.join(settings.FTP_ROOT_DIR, account_name, "auth2.0")
     if not os.path.exists(path):
         os.makedirs(path)
     return path

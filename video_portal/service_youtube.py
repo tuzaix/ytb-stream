@@ -18,18 +18,17 @@ except ImportError:
 
 from store import load_accounts, save_account, get_account_auth_dir
 from models import Account
+import settings 
 
 logger = logging.getLogger(__name__)
 
 # Config for where FTP users are located on disk
 # In production, this should match FTP_BASE in create_ftpuser.sh
-FTP_ROOT_PATH = os.getenv("FTP_ROOT_PATH", "/home/ftp")
-
 scheduler = BackgroundScheduler()
 
 def get_video_dir(ftp_username: str) -> str:
     # In a real deployment, this path must be accessible by this service
-    return os.path.join(FTP_ROOT_PATH, ftp_username)
+    return os.path.join(settings.FTP_ROOT_DIR, ftp_username)
 
 def publish_video_task(account_name: str):
     logger.info(f"Starting publish task for account: {account_name}")
