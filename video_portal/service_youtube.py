@@ -9,12 +9,7 @@ from apscheduler.triggers.cron import CronTrigger
 # Add parent directory to path to import upload_video
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-try:
-    from upload_video import upload_video_once
-except ImportError:
-    # Handle case where dependencies might be missing in dev env
-    logging.warning("Could not import upload_video. Make sure you are in the correct environment.")
-    upload_video_once = None
+from upload_video import upload_video_once
 
 from store import load_accounts, save_account, get_account_auth_dir
 from models import Account
@@ -28,7 +23,7 @@ scheduler = BackgroundScheduler()
 
 def get_video_dir(ftp_username: str) -> str:
     # In a real deployment, this path must be accessible by this service
-    return os.path.join(settings.FTP_ROOT_DIR, ftp_username)
+    return os.path.join(settings.FTP_ROOT_DIR, ftp_username, "video")
 
 def publish_video_task(account_name: str):
     logger.info(f"Starting publish task for account: {account_name}")
@@ -63,30 +58,29 @@ def publish_video_task(account_name: str):
         logger.warning(f"Video directory {video_dir} does not exist. Assuming dev env or mount issue.")
         # For dev testing, maybe use a temp dir or just log
         # return 
+    # 获取视频目录下的非_published结尾的目录
+    video_dirs = [os.path.join(video_dir, d) for d in os.listdir(video_dir) 
+                  if os.path.isdir(os.path.join(video_dir, d)) and not d.endswith("_published")]
     
     try:
-        if upload_video_once:
-            logger.info(f"Calling upload_video_once for {account_name} with title: {copywriting.title}")
-            result = upload_video_once(
-                auth_dir=auth_dir,
-                video_dirs=[video_dir],
-                title=copywriting.title,
-                description=copywriting.description,
-                privacy="public", # Assuming public based on "publish" intent
-                publish=True
-            )
-            logger.info(f"Upload result: {result}")
-            
-            # Update last publish time
-            account.last_publish = datetime.now()
-            # We need to save the account, but load_accounts returns copies? 
-            # store.py logic loads fresh.
-            # We should re-load to avoid race conditions or just update this field?
-            # For simplicity:
-            save_account(account)
-        else:
-            logger.error("upload_video_once function is not available.")
-            
+        logger.info(f"Calling upload_video_once for {account_name} with title: {copywriting.title}")
+        result = upload_video_once(
+            auth_dir=auth_dir,
+            video_dirs=video_dirs,
+            title=copywriting.title,
+            description=copywriting.description,
+            privacy="public", # Assuming public based on "publish" intent
+            publish=True
+        )
+        logger.info(f"Upload result: {result}")
+        
+        # Update last publish time
+        account.last_publish = datetime.now()
+        # We need to save the account, but load_accounts returns copies? 
+        # store.py logic loads fresh.
+        # We should re-load to avoid race conditions or just update this field?
+        # For simplicity:
+        save_account(account)
     except Exception as e:
         logger.exception(f"Failed to upload video for {account_name}: {e}")
 
