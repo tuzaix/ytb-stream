@@ -200,19 +200,29 @@ def get_account_logs(name: str, current_user: str = Depends(get_current_user)):
             lines = f.readlines()
             for line in lines:
                 parts = line.strip().split(" | ")
-                if len(parts) >= 4:
+                if len(parts) >= 5:
                     logs.append({
                         "timestamp": parts[0],
                         "status": parts[1],
                         "title": parts[2],
-                        "message": " | ".join(parts[3:])
+                        "message": parts[3],
+                        "duration": parts[4]
+                    })
+                elif len(parts) >= 4:
+                    logs.append({
+                        "timestamp": parts[0],
+                        "status": parts[1],
+                        "title": parts[2],
+                        "message": " | ".join(parts[3:]),
+                        "duration": "-"
                     })
                 else:
                     logs.append({
                         "timestamp": "",
                         "status": "RAW",
                         "title": "-",
-                        "message": line.strip()
+                        "message": line.strip(),
+                        "duration": "-"
                     })
     except Exception as e:
         logger.error(f"Error reading logs for {name}: {e}")

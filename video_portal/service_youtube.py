@@ -60,6 +60,7 @@ def get_video_dir(ftp_username: str) -> str:
     return os.path.join(settings.FTP_ROOT_DIR, ftp_username, "video")
 
 def publish_video_task(account_name: str):
+    start_time = datetime.now()
     logger.info(f"Starting publish task for account: {account_name}")
     accounts = load_accounts()
     account = accounts.get(account_name)
@@ -70,7 +71,8 @@ def publish_video_task(account_name: str):
 
     if not account.copywriting_groups:
         logger.warning(f"No copywriting groups configured for {account_name}. Skipping.")
-        append_publish_log(account_name, "SKIPPED", "-", "No copywriting groups configured")
+        duration = str(datetime.now() - start_time)
+        append_publish_log(account_name, "SKIPPED", "-", "No copywriting groups configured", duration)
         return
 
     # Randomly select copywriting
@@ -83,7 +85,8 @@ def publish_video_task(account_name: str):
     
     if not os.path.exists(client_secret) or not os.path.exists(token):
         logger.error(f"Auth files missing for {account_name} in {auth_dir}")
-        append_publish_log(account_name, "FAILED", copywriting.title, "Auth files missing")
+        duration = str(datetime.now() - start_time)
+        append_publish_log(account_name, "FAILED", copywriting.title, "Auth files missing", duration)
         return
 
     # Video directory
@@ -115,7 +118,8 @@ def publish_video_task(account_name: str):
         # Log success
         # The result from upload_video_once is a dict, usually containing uploaded video IDs or status
         # Assuming success if no exception raised
-        append_publish_log(account_name, "SUCCESS", copywriting.title, f"Result: {result}")
+        duration = str(datetime.now() - start_time)
+        append_publish_log(account_name, "SUCCESS", copywriting.title, f"Result: {result}", duration)
 
         # Update last publish time
         account.last_publish = datetime.now()
@@ -126,7 +130,8 @@ def publish_video_task(account_name: str):
         save_account(account)
     except Exception as e:
         logger.exception(f"Failed to upload video for {account_name}: {e}")
-        append_publish_log(account_name, "ERROR", copywriting.title if copywriting else "-", str(e))
+        duration = str(datetime.now() - start_time)
+        append_publish_log(account_name, "ERROR", copywriting.title if copywriting else "-", str(e), duration)
 
 def refresh_scheduler():
     """
