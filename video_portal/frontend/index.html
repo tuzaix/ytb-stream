@@ -114,6 +114,10 @@
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 增加发布时间
                             </button>
+                            <button @click="openLogModal(account)" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                视频发布记录
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -216,6 +220,47 @@
             </div>
         </div>
 
+        <!-- Log Modal -->
+        <div v-if="showLogModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-lg w-[800px] max-h-[80vh] flex flex-col">
+                <h3 class="text-lg font-bold mb-4">视频发布记录 - {{ currentAccount?.name }}</h3>
+                
+                <div class="flex-1 overflow-y-auto mb-4 border rounded">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50">时间</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50">状态</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50">标题</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50">信息</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr v-for="(log, idx) in logList" :key="idx">
+                                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ log.timestamp }}</td>
+                                <td class="px-4 py-2 whitespace-nowrap text-sm">
+                                    <span :class="{
+                                        'text-green-600 font-bold': log.status === 'SUCCESS',
+                                        'text-red-600 font-bold': log.status === 'ERROR' || log.status === 'FAILED',
+                                        'text-yellow-600 font-bold': log.status === 'SKIPPED'
+                                    }">{{ log.status }}</span>
+                                </td>
+                                <td class="px-4 py-2 text-sm text-gray-900 max-w-xs truncate" :title="log.title">{{ log.title }}</td>
+                                <td class="px-4 py-2 text-sm text-gray-500 max-w-xs truncate" :title="log.message">{{ log.message }}</td>
+                            </tr>
+                            <tr v-if="logList.length === 0">
+                                <td colspan="4" class="px-4 py-8 text-center text-gray-500">暂无记录</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-end">
+                    <button @click="showLogModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">关闭</button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -234,6 +279,7 @@
                 const showAuthModal = ref(false);
                 const showCopywritingModal = ref(false);
                 const showScheduleModal = ref(false);
+                const showLogModal = ref(false);
                 const isSubmitting = ref(false);
 
                 // Forms data
@@ -243,6 +289,7 @@
                 const tokenInput = ref(null);
                 const copywritingForm = ref([]);
                 const scheduleForm = ref({ publish_times: [] });
+                const logList = ref([]);
 
                 // API Client
                 const api = axios.create({
@@ -429,6 +476,19 @@
                     }
                 };
 
+                const openLogModal = async (account) => {
+                    currentAccount.value = account;
+                    logList.value = [];
+                    showLogModal.value = true;
+                    try {
+                        const res = await api.get(`/accounts/${account.name}/logs`);
+                        logList.value = res.data;
+                    } catch (e) {
+                        console.error(e);
+                        alert('获取日志失败');
+                    }
+                };
+
                 onMounted(() => {
                     if (token.value) {
                         fetchAccounts();
@@ -461,6 +521,9 @@
                     showScheduleModal,
                     scheduleForm,
                     saveSchedule,
+                    openLogModal,
+                    showLogModal,
+                    logList,
                     openAuthModal,
                     openCopywritingModal,
                     openScheduleModal,

@@ -186,6 +186,41 @@ async def upload_auth_files(
     
     return {"message": "Auth files uploaded successfully"}
 
+@app.get("/accounts/{name}/logs")
+def get_account_logs(name: str, current_user: str = Depends(get_current_user)):
+    log_dir = os.path.join(os.path.dirname(__file__), "data", "published_log")
+    log_file = os.path.join(log_dir, f"{name}_published.log")
+    
+    if not os.path.exists(log_file):
+        return []
+        
+    logs = []
+    try:
+        with open(log_file, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            for line in lines:
+                parts = line.strip().split(" | ")
+                if len(parts) >= 4:
+                    logs.append({
+                        "timestamp": parts[0],
+                        "status": parts[1],
+                        "title": parts[2],
+                        "message": " | ".join(parts[3:])
+                    })
+                else:
+                    logs.append({
+                        "timestamp": "",
+                        "status": "RAW",
+                        "title": "-",
+                        "message": line.strip()
+                    })
+    except Exception as e:
+        logger.error(f"Error reading logs for {name}: {e}")
+        return []
+        
+    # Return newest first
+    return logs[::-1]
+
 @app.put("/accounts/{name}/copywriting")
 def update_copywriting(
     name: str,

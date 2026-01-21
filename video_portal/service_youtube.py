@@ -21,6 +21,40 @@ logger = logging.getLogger(__name__)
 # In production, this should match FTP_BASE in create_ftpuser.sh
 scheduler = BackgroundScheduler()
 
+LOG_DIR = os.path.join(os.path.dirname(__file__), "data", "published_log")
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR)
+
+def append_publish_log(account_name: str, status: str, title: str, message: str):
+    log_file = os.path.join(LOG_DIR, f"{account_name}_published.log")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Truncate title and message to first 20 chars
+    short_title = str(title)[:20] if title else ""
+    short_message = str(message)[:20] if message else ""
+    
+    log_entry = f"{timestamp} | {status} | {short_title} | {short_message}\n"
+    
+    lines = []
+    if os.path.exists(log_file):
+        try:
+            with open(log_file, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        except Exception as e:
+            logger.error(f"Failed to read log for {account_name}: {e}")
+    
+    lines.append(log_entry)
+    
+    # Keep only the last 50 lines
+    if len(lines) > 50:
+        lines = lines[-50:]
+        
+    try:
+        with open(log_file, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except Exception as e:
+        logger.error(f"Failed to write log for {account_name}: {e}")
+
 def get_video_dir(ftp_username: str) -> str:
     # In a real deployment, this path must be accessible by this service
     return os.path.join(settings.FTP_ROOT_DIR, ftp_username, "video")
@@ -36,6 +70,7 @@ def publish_video_task(account_name: str):
 
     if not account.copywriting_groups:
         logger.warning(f"No copywriting groups configured for {account_name}. Skipping.")
+        append_publish_log(account_name, "SKIPPED", "-", "No copywriting groups configured")
         return
 
     # Randomly select copywriting
@@ -48,6 +83,7 @@ def publish_video_task(account_name: str):
     
     if not os.path.exists(client_secret) or not os.path.exists(token):
         logger.error(f"Auth files missing for {account_name} in {auth_dir}")
+        append_publish_log(account_name, "FAILED", copywriting.title, "Auth files missing")
         return
 
     # Video directory
@@ -59,8 +95,10 @@ def publish_video_task(account_name: str):
         # For dev testing, maybe use a temp dir or just log
         # return 
     # 获取视频目录下的非_published结尾的目录
-    video_dirs = [os.path.join(video_dir, d) for d in os.listdir(video_dir) 
-                  if os.path.isdir(os.path.join(video_dir, d)) and not d.endswith("_published")]
+    video_dirs = []
+    if os.path.exists(video_dir):
+        video_dirs = [os.path.join(video_dir, d) for d in os.listdir(video_dir) 
+                      if os.path.isdir(os.path.join(video_dir, d)) and not d.endswith("_published")]
     
     try:
         logger.info(f"Calling upload_video_once for {account_name} with title: {copywriting.title}")
@@ -74,6 +112,11 @@ def publish_video_task(account_name: str):
         )
         logger.info(f"Upload result: {result}")
         
+        # Log success
+        # The result from upload_video_once is a dict, usually containing uploaded video IDs or status
+        # Assuming success if no exception raised
+        append_publish_log(account_name, "SUCCESS", copywriting.title, f"Result: {result}")
+
         # Update last publish time
         account.last_publish = datetime.now()
         # We need to save the account, but load_accounts returns copies? 
@@ -83,6 +126,7 @@ def publish_video_task(account_name: str):
         save_account(account)
     except Exception as e:
         logger.exception(f"Failed to upload video for {account_name}: {e}")
+        append_publish_log(account_name, "ERROR", copywriting.title if copywriting else "-", str(e))
 
 def refresh_scheduler():
     """
