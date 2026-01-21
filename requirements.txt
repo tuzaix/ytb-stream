@@ -5,4 +5,8 @@ pytz
 moviepy==1.0.3
 Pillow
 numpy==2.2.6
-yt-dlp
+fastapi
+uvicorn
+python-multipart
+apscheduler
+pydantic
