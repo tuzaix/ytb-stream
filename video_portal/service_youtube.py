@@ -30,7 +30,7 @@ def append_publish_log(account_name: str, status: str, title: str, message: str,
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     # Truncate title and message to first 20 chars
-    show_max_chars = 30
+    show_max_chars = 20
     short_title = str(title)[:show_max_chars] if title else ""
     short_message = str(message)[:show_max_chars] if message else ""
     duration = duration.split('.')[0] # Remove microseconds
