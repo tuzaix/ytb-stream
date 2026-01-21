@@ -39,6 +39,9 @@ ACCESS_TOKEN = os.getenv("ACCESS_TOKEN", _config.get("ACCESS_TOKEN", "fake-super
 # 限制创建的账户群个数
 MAX_ACCOUNTS = int(os.getenv("MAX_ACCOUNTS", _config.get("MAX_ACCOUNTS", 6)))
 
+# 调度器最大并发线程数
+SCHEDULER_MAX_WORKERS = int(os.getenv("SCHEDULER_MAX_WORKERS", _config.get("SCHEDULER_MAX_WORKERS", 10)))
+
 # ftp的根目录
 # 处理相对路径
 _ftp_root_raw = os.getenv("FTP_ROOT_DIR", _config.get("FTP_ROOT_DIR", os.path.join(_current_dir, "ftp")))

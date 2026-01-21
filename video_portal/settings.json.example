@@ -3,6 +3,7 @@
     "ADMIN_PASSWORD": "admin",
     "ACCESS_TOKEN": "fake-super-secret-token",
     "MAX_ACCOUNTS": 6,
+    "SCHEDULER_MAX_WORKERS": 10,
     "FTP_ROOT_DIR": "./ftp",
     "SUBDIRS": "auth2.0,video"
 }
