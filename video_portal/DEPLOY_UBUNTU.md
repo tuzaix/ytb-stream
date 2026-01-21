@@ -135,13 +135,49 @@ sudo systemctl status video-portal
 sudo tail -f /var/log/video_portal.log
 ```
 
-## 5. 验证部署
+## 5. 配置 Nginx 反向代理 (可选)
+
+虽然 Uvicorn 可以直接提供服务，但在生产环境中，建议使用 Nginx 作为反向代理来处理端口转发、SSL 加密等。
+
+### 5.1 安装 Nginx
+```bash
+sudo apt install -y nginx
+```
+
+### 5.2 配置站点
+项目目录中已提供 Nginx 配置文件模板 `video_portal/video_portal.nginx.conf`。
+
+1. 复制配置文件到 Nginx 目录：
+```bash
+sudo cp /opt/ytb-stream/video_portal/video_portal.nginx.conf /etc/nginx/sites-available/video-portal
+```
+
+2. 编辑配置文件，修改 `server_name` 为您的实际域名或 IP：
+```bash
+sudo nano /etc/nginx/sites-available/video-portal
+```
+将 `server_name example.com;` 修改为 `server_name <您的IP或域名>;`。
+
+3. 启用站点：
+```bash
+sudo ln -s /etc/nginx/sites-available/video-portal /etc/nginx/sites-enabled/
+```
+
+4. 检查配置并重启 Nginx：
+```bash
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+现在，您可以通过 `http://<您的IP或域名>` (默认 80 端口) 访问服务，而无需在 URL 中添加 `:8000`。
+
+## 6. 验证部署
 
 1. 打开浏览器访问 `http://<服务器IP>:8000`。
 2. 使用配置的账号密码登录。
 3. 尝试创建一个测试账号，观察是否成功生成 FTP 信息，并验证 FTP 连接是否可用。
 
-## 6. 常见问题排查
+## 7. 常见问题排查
 
 **Q: 创建账号时报错 "Permission denied"？**
 A: 请检查 Systemd 服务是否配置为 `User=root`，因为非 root 用户无法执行 `useradd` 命令。
