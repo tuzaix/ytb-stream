@@ -108,6 +108,10 @@ def list_accounts(current_user: str = Depends(get_current_user)):
 
 @app.post("/accounts", response_model=Account)
 def create_account(account_in: AccountCreate, current_user: str = Depends(get_current_user)):
+    accounts = load_accounts()
+    if len(accounts) >= settings.MAX_ACCOUNTS:
+        raise HTTPException(status_code=400, detail=f"已达到最大账户数量限制 ({settings.MAX_ACCOUNTS})")
+
     existing = get_account(account_in.name)
     if existing:
         raise HTTPException(status_code=400, detail="账号已存在")

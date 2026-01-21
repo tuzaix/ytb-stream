@@ -7,3 +7,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin")
 
 # API 访问令牌
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN", "fake-super-secret-token")
+
+# 限制创建的账户群个数
+MAX_ACCOUNTS = int(os.getenv("MAX_ACCOUNTS", "6"))
+
