@@ -100,3 +100,4 @@ sudo systemctl enable video-portal.service
 sudo systemctl start video-portal.service
 
 
+# 下面是配置域名等工作 
