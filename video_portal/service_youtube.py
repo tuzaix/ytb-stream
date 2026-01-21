@@ -4,6 +4,7 @@ import random
 import logging
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
 
 # Add parent directory to path to import upload_video
@@ -19,7 +20,10 @@ logger = logging.getLogger(__name__)
 
 # Config for where FTP users are located on disk
 # In production, this should match FTP_BASE in create_ftpuser.sh
-scheduler = BackgroundScheduler()
+executors = {
+    'default': ThreadPoolExecutor(settings.SCHEDULER_MAX_WORKERS)
+}
+scheduler = BackgroundScheduler(executors=executors)
 
 LOG_DIR = os.path.join(os.path.dirname(__file__), "data", "published_log")
 if not os.path.exists(LOG_DIR):
