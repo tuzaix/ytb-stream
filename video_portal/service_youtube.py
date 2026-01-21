@@ -35,7 +35,8 @@ def append_publish_log(account_name: str, status: str, title: str, message: str,
     short_message = str(message)[:show_max_chars] if message else ""
     duration = duration.split('.')[0] # Remove microseconds
 
-    log_entry = f"{timestamp} | {status} | {short_title} | {short_message} | {duration}\n"
+    # log_entry = f"{timestamp} | {status} | {short_title} | {short_message} | {duration}\n"
+    log_entry = f"{timestamp} | {status} | {short_title} | - | {duration}\n"
     
     lines = []
     if os.path.exists(log_file):
