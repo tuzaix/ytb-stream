@@ -302,6 +302,8 @@
                 const showScheduleModal = ref(false);
                 const showLogModal = ref(false);
                 const isSubmitting = ref(false);
+                const showToast = ref(false);
+                const toastMessage = ref('');
 
                 // Forms data
                 const newAccount = ref({ name: '', publish_time: '10:00' });
