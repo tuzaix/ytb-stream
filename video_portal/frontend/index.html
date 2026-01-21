@@ -245,7 +245,7 @@
                                         'text-yellow-600 font-bold': log.status === 'SKIPPED'
                                     }">{{ log.status }}</span>
                                 </td>
-                                <td class="px-4 py-2 text-sm text-gray-900" :title="log.title">{{ log.title }}</td>
+                                <td class="px-4 py-2 text-sm text-gray-900" :title="log.title">{{ log.title }}...</td>
                             </tr>
                             <tr v-if="logList.length === 0">
                                 <td colspan="3" class="px-4 py-8 text-center text-gray-500">暂无记录</td>
