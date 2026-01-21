@@ -30,9 +30,11 @@ def append_publish_log(account_name: str, status: str, title: str, message: str,
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     # Truncate title and message to first 20 chars
-    short_title = str(title)[:20] if title else ""
-    short_message = str(message)[:20] if message else ""
-    
+    show_max_chars = 30
+    short_title = str(title)[:show_max_chars] if title else ""
+    short_message = str(message)[:show_max_chars] if message else ""
+    duration = duration.split('.')[0] # Remove microseconds
+
     log_entry = f"{timestamp} | {status} | {short_title} | {short_message} | {duration}\n"
     
     lines = []
@@ -119,6 +121,7 @@ def publish_video_task(account_name: str):
         # The result from upload_video_once is a dict, usually containing uploaded video IDs or status
         # Assuming success if no exception raised
         duration = str(datetime.now() - start_time)
+        
         append_publish_log(account_name, "SUCCESS", copywriting.title, f"Result: {result}", duration)
 
         # Update last publish time
