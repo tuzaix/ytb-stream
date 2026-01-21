@@ -86,7 +86,7 @@ Description=Video Portal Backend Service
 After=network.target vsftpd.service
 
 [Service]
-Type=simple
+
 # 必须使用 root 用户，因为需要创建系统 FTP 账户
 User=root
 Group=root

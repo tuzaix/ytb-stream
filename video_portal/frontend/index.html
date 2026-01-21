@@ -402,20 +402,12 @@
                     scheduleForm.value = { 
                         publish_times: JSON.parse(JSON.stringify(account.publish_times || [])) 
                     };
-                    if (scheduleForm.value.publish_times.length === 0) {
-                        scheduleForm.value.publish_times.push('10:00');
-                    }
                     showScheduleModal.value = true;
                 };
 
                 const saveSchedule = async () => {
                     const times = scheduleForm.value.publish_times.filter(t => t);
                     
-                    if (times.length === 0) {
-                        alert('请至少保留一个有效时间');
-                        return;
-                    }
-
                     // Check duplicate in the list itself
                     const uniqueTimes = new Set(times);
                     if (uniqueTimes.size !== times.length) {
