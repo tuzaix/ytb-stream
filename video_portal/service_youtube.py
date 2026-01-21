@@ -25,7 +25,7 @@ LOG_DIR = os.path.join(os.path.dirname(__file__), "data", "published_log")
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR)
 
-def append_publish_log(account_name: str, status: str, title: str, message: str):
+def append_publish_log(account_name: str, status: str, title: str, message: str, duration: str):
     log_file = os.path.join(LOG_DIR, f"{account_name}_published.log")
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
@@ -33,7 +33,7 @@ def append_publish_log(account_name: str, status: str, title: str, message: str)
     short_title = str(title)[:20] if title else ""
     short_message = str(message)[:20] if message else ""
     
-    log_entry = f"{timestamp} | {status} | {short_title} | {short_message}\n"
+    log_entry = f"{timestamp} | {status} | {short_title} | {short_message} | {duration}\n"
     
     lines = []
     if os.path.exists(log_file):
