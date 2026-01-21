@@ -74,12 +74,14 @@ def publish_video_task(account_name: str):
 
     if not account.copywriting_groups:
         logger.warning(f"No copywriting groups configured for {account_name}. Skipping.")
-        duration = str(datetime.now() - start_time)
-        append_publish_log(account_name, "SKIPPED", "-", "No copywriting groups configured", duration)
-        return
+        copywriting_title = None 
+        copywriting_description = None
+    else:
+        # Randomly select copywriting
+        copywriting = random.choice(account.copywriting_groups)
 
-    # Randomly select copywriting
-    copywriting = random.choice(account.copywriting_groups)
+        copywriting_title = copywriting.title
+        copywriting_description = copywriting.description   
     
     # Auth files
     auth_dir = get_account_auth_dir(account.name)
@@ -89,7 +91,7 @@ def publish_video_task(account_name: str):
     if not os.path.exists(client_secret) or not os.path.exists(token):
         logger.error(f"Auth files missing for {account_name} in {auth_dir}")
         duration = str(datetime.now() - start_time)
-        append_publish_log(account_name, "FAILED", copywriting.title, "Auth files missing", duration)
+        append_publish_log(account_name, "FAILED", "-", "Auth files missing", duration)
         return
 
     # Video directory
@@ -107,12 +109,12 @@ def publish_video_task(account_name: str):
                       if os.path.isdir(os.path.join(video_dir, d)) and not d.endswith("_published")]
     
     try:
-        logger.info(f"Calling upload_video_once for {account_name} with title: {copywriting.title}")
+        logger.info(f"Calling upload_video_once for {account_name} with title: {copywriting_title}")
         result = upload_video_once(
             auth_dir=auth_dir,
             video_dirs=video_dirs,
-            title=copywriting.title,
-            description=copywriting.description,
+            title=copywriting_title,
+            description=copywriting_description,
             privacy="public", # Assuming public based on "publish" intent
             publish=True
         )
@@ -123,7 +125,7 @@ def publish_video_task(account_name: str):
         # Assuming success if no exception raised
         duration = str(datetime.now() - start_time)
         
-        append_publish_log(account_name, "SUCCESS", copywriting.title, f"Result: {result}", duration)
+        append_publish_log(account_name, "SUCCESS", copywriting_title, f"Result: {result}", duration)
 
         # Update last publish time
         account.last_publish = datetime.now()
@@ -135,7 +137,7 @@ def publish_video_task(account_name: str):
     except Exception as e:
         logger.exception(f"Failed to upload video for {account_name}: {e}")
         duration = str(datetime.now() - start_time)
-        append_publish_log(account_name, "ERROR", copywriting.title if copywriting else "-", str(e), duration)
+        append_publish_log(account_name, "ERROR", copywriting_title if copywriting_title else "-", str(e), duration)
 
 def refresh_scheduler():
     """
