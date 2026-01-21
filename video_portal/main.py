@@ -172,7 +172,7 @@ async def upload_auth_files(
     auth_dir = get_account_auth_dir(name)
     
     # Save client_secret.json
-    client_secret_path = os.path.join(auth_dir, "client_secrets.json")
+    client_secret_path = os.path.join(auth_dir, "client_secret.json")
     with open(client_secret_path, "wb") as buffer:
         shutil.copyfileobj(client_secret.file, buffer)
         

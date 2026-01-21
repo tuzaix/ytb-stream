@@ -85,7 +85,7 @@ def publish_video_task(account_name: str):
     
     # Auth files
     auth_dir = get_account_auth_dir(account.name)
-    client_secret = os.path.join(auth_dir, "client_secrets.json")
+    client_secret = os.path.join(auth_dir, "client_secret.json")
     token = os.path.join(auth_dir, "token.json")
     
     if not os.path.exists(client_secret) or not os.path.exists(token):
