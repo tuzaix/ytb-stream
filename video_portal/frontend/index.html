@@ -277,6 +277,11 @@
             </div>
         </div>
 
+        <!-- Toast Notification -->
+        <div v-if="showToast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded shadow-lg z-50 transition-opacity duration-300">
+            {{ toastMessage }}
+        </div>
+
     </div>
 
     <script>
@@ -355,11 +360,18 @@
                 const copyToClipboard = (text) => {
                     if (!text) return;
                     navigator.clipboard.writeText(text).then(() => {
-                        // Optional: Show toast notification
-                        // alert('已复制到剪贴板'); 
-                        // Using a simple visual feedback might be better but for now this works
+                        toastMessage.value = '复制成功';
+                        showToast.value = true;
+                        setTimeout(() => {
+                            showToast.value = false;
+                        }, 2000);
                     }).catch(err => {
                         console.error('Failed to copy: ', err);
+                        toastMessage.value = '复制失败';
+                        showToast.value = true;
+                        setTimeout(() => {
+                            showToast.value = false;
+                        }, 2000);
                     });
                 };
 
@@ -579,7 +591,9 @@
                     openCopywritingModal,
                     openScheduleModal,
                     isSubmitting,
-                    copyToClipboard
+                    copyToClipboard,
+                    showToast,
+                    toastMessage
                 };
             }
         }).mount('#app');
