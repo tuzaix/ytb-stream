@@ -47,5 +47,6 @@ if not os.path.isabs(_ftp_root_raw):
 else:
     FTP_ROOT_DIR = _ftp_root_raw
 
-
+# FTP下的子目录
+SUBDIRS = _config.get("SUBDIRS", "")
 

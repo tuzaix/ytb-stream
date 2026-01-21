@@ -3,6 +3,7 @@ import os
 import logging
 import secrets
 import string
+import settings
 
 # Path to the shell script
 # ../../dev_tools/vsftpd/create_ftpuser.sh
@@ -30,7 +31,10 @@ def create_ftp_account(username: str) -> str:
     password = generate_password()
 
     # Prepare command
-    cmd = ["bash", SCRIPT_PATH, username, password]
+    if settings.SUBDIRS:
+        cmd = ["bash", SCRIPT_PATH, username, password, settings.SUBDIRS]
+    else:
+        cmd = ["bash", SCRIPT_PATH, username, password]
     
     try:
         # Log command without password
