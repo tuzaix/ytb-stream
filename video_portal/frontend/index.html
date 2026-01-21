@@ -233,7 +233,6 @@
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50">时间</th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50">状态</th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50">标题</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50">信息</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -246,11 +245,10 @@
                                         'text-yellow-600 font-bold': log.status === 'SKIPPED'
                                     }">{{ log.status }}</span>
                                 </td>
-                                <td class="px-4 py-2 text-sm text-gray-900 max-w-xs truncate" :title="log.title">{{ log.title }}</td>
-                                <td class="px-4 py-2 text-sm text-gray-500 max-w-xs truncate" :title="log.message">{{ log.message }}</td>
+                                <td class="px-4 py-2 text-sm text-gray-900" :title="log.title">{{ log.title }}</td>
                             </tr>
                             <tr v-if="logList.length === 0">
-                                <td colspan="4" class="px-4 py-8 text-center text-gray-500">暂无记录</td>
+                                <td colspan="3" class="px-4 py-8 text-center text-gray-500">暂无记录</td>
                             </tr>
                         </tbody>
                     </table>
