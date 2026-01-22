@@ -47,13 +47,6 @@ else:
 # FTP下的子目录
 SUBDIRS = _config.get("SUBDIRS", "")
 
-# Broadcast Script Path
-_broadcast_script_raw = os.getenv("BROADCAST_SCRIPT_PATH", _config.get("BROADCAST_SCRIPT_PATH", os.path.abspath(os.path.join(_current_dir, "..", "start-broadcast.sh"))))
-if not os.path.isabs(_broadcast_script_raw):
-    BROADCAST_SCRIPT_PATH = os.path.abspath(os.path.join(_current_dir, _broadcast_script_raw))
-else:
-    BROADCAST_SCRIPT_PATH = _broadcast_script_raw
-
 # Max broadcast times per account
 MAX_BROADCAST_TIMES_PER_ACCOUNT = int(os.getenv("MAX_BROADCAST_TIMES_PER_ACCOUNT", _config.get("MAX_BROADCAST_TIMES_PER_ACCOUNT", 4)))
 

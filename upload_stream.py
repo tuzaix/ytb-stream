@@ -5,24 +5,225 @@ import ctypes
 import os
 import platform
 import signal
+import logging
+from typing import Optional
 from youtube.client import YouTubeClient
 from youtube.thumbnail import generate_stream_thumbnail, add_caption_to_image
 from streamer import Streamer
 
-def shutdown_after_duration(duration_seconds, duration_hours):
-    """
-    Waits for a given duration and then sends a Ctrl+C signal to the process
-    to trigger a graceful shutdown. This function is cross-platform.
-    """
-    time.sleep(duration_seconds)
-    print(f"\n{duration_hours}-hour limit reached. Initiating shutdown...")
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-    if platform.system() == "Windows":
-        # On Windows, this sends a Ctrl+C event to the process console.
-        ctypes.windll.kernel32.GenerateConsoleCtrlEvent(0, 0)
+def shutdown_after_duration(duration_seconds, duration_hours, stop_event=None):
+    """
+    Waits for a given duration and then sends a signal to stop the process.
+    If stop_event is provided (threading mode), it sets the event.
+    """
+    if stop_event:
+        logger.info(f"Monitor started: shutting down in {duration_hours} hours.")
+        if stop_event.wait(duration_seconds):
+            return # Stopped externally
+        logger.info(f"\n{duration_hours}-hour limit reached. Signaling stop...")
+        stop_event.set()
     else:
-        # On Linux/macOS, send a SIGINT signal (equivalent to Ctrl+C).
-        os.kill(os.getpid(), signal.SIGINT)
+        # Legacy process-based shutdown
+        time.sleep(duration_seconds)
+        print(f"\n{duration_hours}-hour limit reached. Initiating shutdown...")
+
+        if platform.system() == "Windows":
+            # On Windows, this sends a Ctrl+C event to the process console.
+            ctypes.windll.kernel32.GenerateConsoleCtrlEvent(0, 0)
+        else:
+            # On Linux/macOS, send a SIGINT signal (equivalent to Ctrl+C).
+            os.kill(os.getpid(), signal.SIGINT)
+
+def run_broadcast(
+    auth_dir: str,
+    video_file: str,
+    title: str = "My Live Stream",
+    description: str = "",
+    privacy_status: str = "unlisted",
+    proxy: Optional[str] = None,
+    duration: float = 3.0,
+    thumbnail: Optional[str] = None,
+    thumbnail_caption: str = "",
+    thumbnail_color: str = "yellow",
+    log_file: Optional[str] = None
+):
+    """
+    Main entry point for running a broadcast programmatically.
+    """
+    # Configure file logging if requested
+    if log_file:
+        try:
+            file_handler = logging.FileHandler(log_file, encoding='utf-8')
+            file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+            logger.addHandler(file_handler)
+        except Exception as e:
+            logger.error(f"Failed to setup log file {log_file}: {e}")
+
+    # Use a threading Event to control the loop
+    stop_event = threading.Event()
+    
+    credentials_file = os.path.join(auth_dir, "client_secret.json")
+    token_file = os.path.join(auth_dir, "token.json")
+
+    if not os.path.exists(credentials_file):
+        logger.error(f"Error: 'client_secret.json' not found in '{auth_dir}'.")
+        return
+
+    try:
+        client = YouTubeClient(credentials_file, token_file=token_file, proxy=proxy)
+    except Exception as e:
+        logger.error(f"Failed to initialize YouTubeClient: {e}")
+        return
+
+    logger.info("Checking for existing broadcasts...")
+    try:
+        existing_broadcasts = client.get_all_broadcasts()
+        if existing_broadcasts:
+            logger.info(f"Found {len(existing_broadcasts)} existing broadcasts. Closing them...")
+            for broadcast in existing_broadcasts:
+                broadcast_id = broadcast['id']
+                status = broadcast['status']['lifeCycleStatus']
+                if status in ['live', 'testing']:
+                    logger.info(f"Closing broadcast {broadcast_id} (status: {status})...")
+                    try:
+                        client.close_live_broadcast(broadcast_id)
+                        logger.info(f"Broadcast {broadcast_id} closed.")
+                        time.sleep(3)
+                    except Exception as e:
+                        logger.error(f"Failed to close broadcast {broadcast_id}: {e}")
+                elif status == 'created':
+                    logger.info(f"Deleting broadcast {broadcast_id} (status: {status})...")
+                    try:
+                        client.delete_live_broadcast(broadcast_id)
+                        logger.info(f"Broadcast {broadcast_id} deleted.")
+                        time.sleep(3)
+                    except Exception as e:
+                        logger.error(f"Failed to delete broadcast {broadcast_id}: {e}")
+            logger.info("Finished closing existing broadcasts.")
+        else:
+            logger.info("No existing broadcasts found.")
+    except Exception as e:
+        logger.error(f"Error checking existing broadcasts: {e}")
+
+    time.sleep(3)
+    logger.info("Creating new broadcast...")
+    try:
+        broadcast, stream = client.create_live_broadcast(title, description, privacy_status)
+    except Exception as e:
+        logger.error(f"Failed to create broadcast: {e}")
+        return
+
+    if not broadcast or broadcast.get("status", {}).get("lifeCycleStatus") != "ready":
+        logger.error("Failed to create broadcast or incorrect status.")
+        if broadcast:
+            logger.error(f"Status: {broadcast.get('status', {}).get('lifeCycleStatus')}")
+        return
+
+    broadcast_id = broadcast["id"]
+    logger.info(f"Broadcast created. ID: {broadcast_id}")
+
+    # Thumbnail handling
+    logger.info("Preparing thumbnail...")
+    
+    def prepare_thumbnail_with_caption(video_path, base_thumbnail, caption, color):
+        caption_text = caption.strip() if caption else ""
+        if caption_text and base_thumbnail and os.path.exists(base_thumbnail):
+            root, ext = os.path.splitext(base_thumbnail)
+            ext = ext or ".jpg"
+            captioned_path = f"{root}_captioned{ext}"
+            try:
+                import shutil
+                shutil.copy(base_thumbnail, captioned_path)
+                result = add_caption_to_image(captioned_path, caption_text, color=color)
+                if result: return result
+            except Exception as e:
+                logger.error(f"Error preparing captioned thumbnail: {e}")
+
+        generated = generate_stream_thumbnail(video_path, caption_text if caption_text else None, color=color)
+        return generated
+
+    if thumbnail and os.path.exists(thumbnail):
+        thumbnail_path = thumbnail
+    else:
+        thumbnail_path = prepare_thumbnail_with_caption(video_file, thumbnail, thumbnail_caption, thumbnail_color)
+
+    if thumbnail_path:
+        try:
+            client.set_thumbnail(broadcast_id, thumbnail_path)
+            logger.info(f"Thumbnail set: {thumbnail_path}")
+            if thumbnail_path != thumbnail: # If generated or captioned copy
+                 try:
+                    os.remove(thumbnail_path)
+                 except: pass
+        except Exception as e:
+            logger.error(f"Failed to set thumbnail: {e}")
+    else:
+        logger.warning("Thumbnail preparation failed.")
+
+    stream_url = f"{stream['cdn']['ingestionInfo']['ingestionAddress']}/{stream['cdn']['ingestionInfo']['streamName']}"
+    
+    time.sleep(3)
+    streamer = Streamer(stream_url, video_file)
+    logger.info(f"Starting stream to {stream_url}")
+    streamer.start_streaming()
+
+    logger.info("Waiting for stream to go live...")
+    start_wait_time = time.time()
+    is_live = False
+    while time.time() - start_wait_time < 300:
+        if stop_event.is_set(): break
+        status = client.get_live_broadcast_status(broadcast_id)
+        logger.info(f"Status: {status}")
+        if status == 'live':
+            is_live = True
+            logger.info(f"Broadcast {broadcast_id} is live.")
+            break
+        time.sleep(5)
+    
+    if not is_live and not stop_event.is_set():
+        logger.error("Timeout waiting for live status.")
+        streamer.stop_streaming()
+        try:
+            client.delete_live_broadcast(broadcast_id)
+        except: pass
+        return
+
+    # Monitor loop
+    monitor_thread = None
+    if duration > 0:
+        duration_limit_seconds = duration * 3600
+        monitor_thread = threading.Thread(
+            target=shutdown_after_duration,
+            args=(duration_limit_seconds, duration, stop_event),
+            daemon=True
+        )
+        monitor_thread.start()
+
+    try:
+        while not stop_event.is_set():
+            status = client.get_live_broadcast_status(broadcast_id)
+            if status != 'live':
+                logger.warning(f"Broadcast no longer live (status: {status}). Stopping.")
+                break
+            time.sleep(15)
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt received.")
+        pass
+    except Exception as e:
+        logger.error(f"Error in monitor loop: {e}")
+    finally:
+        logger.info("Stopping stream and closing broadcast...")
+        stop_event.set() # Ensure monitor thread knows
+        streamer.stop_streaming()
+        try:
+            client.close_live_broadcast(broadcast_id)
+            logger.info("Broadcast closed.")
+        except Exception as e:
+            logger.error(f"Error closing broadcast: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description="YouTube Live Streamer")
@@ -33,200 +234,23 @@ def main():
     parser.add_argument("--privacy_status", default="unlisted", help="Privacy status of the live stream (public, private, or unlisted).")
     parser.add_argument("--proxy", help="Proxy server to use for requests (e.g., http://localhost:7897)", default=None)
     parser.add_argument("--duration", type=float, default=3.0, help="Maximum duration of the live stream in hours. Set to 0 for no limit.")
-    # Thumbnail and caption options (aligned with upload_video.py)
     parser.add_argument("--thumbnail", type=str, help="Optional path to a custom thumbnail image")
-    parser.add_argument("--thumbnail_caption", type=str, default="", help="Caption text for the thumbnail (empty by default); will auto-wrap and center")
-    parser.add_argument(
-        "--thumbnail_color",
-        type=str,
-        default="yellow",
-        help=(
-            "Caption color (default: yellow). Options include: yellow, red, blue, "
-            "green, white, orange, purple, cyan"
-        ),
-    )
+    parser.add_argument("--thumbnail_caption", type=str, default="", help="Caption text for the thumbnail")
+    parser.add_argument("--thumbnail_color", type=str, default="yellow", help="Caption color")
     args = parser.parse_args()
 
-    credentials_file = os.path.join(args.auth_dir, "client_secret.json")
-    token_file = os.path.join(args.auth_dir, "token.json")
-
-    if not os.path.exists(credentials_file):
-        print(f"错误: 在目录 '{args.auth_dir}' 中未找到 'client_secret.json'。")
-        print("请从 Google Cloud Console 下载您的 OAuth 2.0 客户端ID文件，")
-        print(f"并将其重命名为 'client_secret.json' 后放置在 '{args.auth_dir}' 目录中。")
-        return
-
-    client = YouTubeClient(credentials_file, token_file=token_file, proxy=args.proxy)
-
-    print("正在检查已存在的直播...")
-    existing_broadcasts = client.get_all_broadcasts()
-    if existing_broadcasts:
-        print(f"发现 {len(existing_broadcasts)} 个已存在的直播。正在关闭它们...")
-        for broadcast in existing_broadcasts:
-            broadcast_id = broadcast['id']
-            status = broadcast['status']['lifeCycleStatus']
-            if status in ['live', 'testing']:
-                print(f"正在关闭直播 {broadcast_id} (状态: {status})...")
-                try:
-                    client.close_live_broadcast(broadcast_id)
-                    print(f"直播 {broadcast_id} 已关闭。")
-                    time.sleep(3)  # Add a 3-second delay
-                except Exception as e:
-                    print(f"无法关闭直播 {broadcast_id}: {e}")
-            elif status == 'created':
-                print(f"正在删除直播 {broadcast_id} (状态: {status})...")
-                try:
-                    client.delete_live_broadcast(broadcast_id)
-                    print(f"直播 {broadcast_id} 已删除。")
-                    time.sleep(3)  # Add a 3-second delay
-                except Exception as e:
-                    print(f"无法删除直播 {broadcast_id}: {e}")
-        print("已完成关闭所有存在的直播。")
-    else:
-        print("未发现已存在的直播。")
-
-    time.sleep(3)  # Add a 3-second delay before creating a new broadcast
-    print("正在创建新的直播...")
-    broadcast, stream = client.create_live_broadcast(
-        args.title, args.description, args.privacy_status
+    run_broadcast(
+        auth_dir=args.auth_dir,
+        video_file=args.video_file,
+        title=args.title,
+        description=args.description,
+        privacy_status=args.privacy_status,
+        proxy=args.proxy,
+        duration=args.duration,
+        thumbnail=args.thumbnail,
+        thumbnail_caption=args.thumbnail_caption,
+        thumbnail_color=args.thumbnail_color
     )
-
-    if not broadcast or broadcast.get("status", {}).get("lifeCycleStatus") != "ready":
-        print("无法创建直播或直播状态不正确，请检查您的 YouTube 凭据和配额。")
-        if broadcast:
-            print(f"收到的直播状态: {broadcast.get('status', {}).get('lifeCycleStatus')}")
-        return
-
-    broadcast_id = broadcast["id"]
-
-    # Prepare and set the thumbnail (supports caption and color, consistent with upload_video.py)
-    print("Preparing thumbnail for the stream...")
-
-    def prepare_thumbnail_with_caption(video_path: str, base_thumbnail: str, caption: str, color: str) -> str:
-        """Prepare a thumbnail for the stream.
-
-        - Always generate a thumbnail from the video (auto-generation for streams).
-        - If a caption is provided and a base thumbnail exists, overlay the caption on a copy of the base.
-        - If caption is provided but no base thumbnail, overlay the caption on the generated thumbnail.
-        - If no caption is provided, generate from the video without caption.
-
-        Args:
-            video_path: The source video path used to generate thumbnail.
-            base_thumbnail: An existing thumbnail image to copy and caption, if caption is provided.
-            caption: The text to overlay on the thumbnail.
-            color: The color for caption text (e.g., 'yellow', 'red', 'blue').
-        """
-        caption_text = caption.strip() if caption else ""
-
-        # If caption provided and base thumbnail exists, overlay on base copy
-        if caption_text and base_thumbnail and os.path.exists(base_thumbnail):
-            root, ext = os.path.splitext(base_thumbnail)
-            ext = ext or ".jpg"
-            captioned_path = f"{root}_captioned{ext}"
-            try:
-                import shutil
-                shutil.copy(base_thumbnail, captioned_path)
-                result = add_caption_to_image(captioned_path, caption_text, color=color)
-                if result:
-                    return result
-                else:
-                    print("Failed to overlay caption on provided thumbnail. Will attempt to generate from video.")
-            except Exception as e:
-                print(f"Error preparing captioned thumbnail from provided file: {e}")
-
-        # Generate from video (with caption if provided)
-        generated = generate_stream_thumbnail(video_path, caption_text if caption_text else None, color=color)
-        if generated:
-            return generated
-        else:
-            print("Failed to generate thumbnail from video.")
-            return None
-
-
-    # 如果传递了args.thumbnail封面的文件，则直接使用该文件作为封面
-    if args.thumbnail and os.path.exists(args.thumbnail):
-        thumbnail_path = args.thumbnail
-    else:
-        thumbnail_path = prepare_thumbnail_with_caption(
-        args.video_file, args.thumbnail, args.thumbnail_caption, args.thumbnail_color
-    )
-
-    if thumbnail_path:
-        try:
-            client.set_thumbnail(broadcast_id, thumbnail_path)
-            print(f"Successfully set thumbnail: {thumbnail_path}")
-            # Clean up generated thumbnail if it was produced during this run
-            try:
-                os.remove(thumbnail_path)
-                print(f"Removed generated thumbnail: {thumbnail_path}")
-            except Exception:
-                pass
-        except Exception as e:
-            print(f"Failed to set thumbnail: {e}")
-    else:
-        print("Thumbnail preparation failed or was skipped.")
-
-    stream_url = f"{stream['cdn']['ingestionInfo']['ingestionAddress']}/{stream['cdn']['ingestionInfo']['streamName']}"
-
-    time.sleep(3)  # Add a 3-second delay before starting the stream
-    streamer = Streamer(stream_url, args.video_file)
-    print(f"Stream URL: {stream_url}")
-    print("Starting stream...")
-    streamer.start_streaming()
-
-    # Wait for the stream to be in the 'live' state
-    print("Waiting for YouTube to start the stream automatically (up to 5 minutes)...")
-    start_time = time.time()
-    while time.time() - start_time < 300:
-        status = client.get_live_broadcast_status(broadcast_id)
-        print(f"Current broadcast status: {status}")
-        if status == 'live':
-            print(f"Broadcast {broadcast_id} is now live.")
-            break
-        time.sleep(5)
-    else:
-        print("Timeout waiting for stream to go live. Aborting.")
-        streamer.stop_streaming()
-        # Since auto-start is enabled, the broadcast might be in a weird state.
-        # Deleting it is safer than trying to close it.
-        try:
-            client.delete_live_broadcast(broadcast_id)
-            print(f"直播 {broadcast_id} 已删除。")
-        except Exception as e:
-            print(f"无法删除直播 {broadcast_id}: {e}")
-        return
-
-    if args.duration > 0:
-        # Start the shutdown timer thread
-        duration_limit_seconds = args.duration * 3600  # Convert hours to seconds
-        monitor_thread = threading.Thread(
-            target=shutdown_after_duration,
-            args=(duration_limit_seconds, args.duration),
-            daemon=True
-        )
-        monitor_thread.start()
-        print(f"监控已启动：直播将在 {args.duration} 小时后自动关闭。")
-
-    try:
-        while True:
-            status = client.get_live_broadcast_status(broadcast_id)
-            print(f"Broadcast status: {status}")
-            if status != 'live':
-                print(f"直播已不再进行 (当前状态: {status})。正在退出。")
-                streamer.stop_streaming()
-                break
-            print("Stream is live. Press Ctrl+C to stop.")
-            time.sleep(15) # Check status less frequently
-    except KeyboardInterrupt:
-        print("\n正在停止推流...")
-        streamer.stop_streaming()
-        print("正在关闭直播间...")
-        try:
-            client.close_live_broadcast(broadcast_id)
-            print("直播已结束。")
-        except Exception as e:
-            print(f"关闭直播间时出错: {e}")
-            print("可能是因为直播已通过其他方式结束。")
 
 if __name__ == "__main__":
     main()

@@ -2,7 +2,7 @@ import sys
 import os
 import random
 import logging
-import subprocess
+import multiprocessing
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
@@ -11,6 +11,10 @@ from apscheduler.triggers.cron import CronTrigger
 from store import load_accounts, save_account, get_account_auth_dir
 from models import Account
 import settings 
+
+# Add parent directory to path to import upload_stream
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import upload_stream
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +37,8 @@ def append_broadcast_log(account_name: str, status: str, title: str, message: st
     short_message = str(message)[:show_max_chars] if message else ""
     duration = duration.split('.')[0] # Remove microseconds
 
-    log_entry = f"{timestamp} | {status} | {short_title} | {short_message} | {duration}\n"
+    # log_entry = f"{timestamp} | {status} | {short_title} | {short_message} | {duration}\n"
+    log_entry = f"{timestamp} | {status} | {short_title} | - | {duration}\n"
     
     lines = []
     if os.path.exists(log_file):
@@ -54,6 +59,57 @@ def append_broadcast_log(account_name: str, status: str, title: str, message: st
             f.writelines(lines)
     except Exception as e:
         logger.error(f"Failed to write log for {account_name}: {e}")
+
+def get_random_video(account_name: str):
+    account_dir = os.path.join(settings.FTP_ROOT_DIR, account_name)
+    live_dir = os.path.join(account_dir, "live")
+    if not os.path.exists(live_dir):
+        return None
+    
+    videos = []
+    video_extensions = {'.mp4', '.mkv', '.avi', '.mov', '.flv', '.ts'}
+    
+    try:
+        # Search in subdirectories
+        for item in os.listdir(live_dir):
+            item_path = os.path.join(live_dir, item)
+            if os.path.isdir(item_path):
+                for f in os.listdir(item_path):
+                    if os.path.isfile(os.path.join(item_path, f)):
+                        ext = os.path.splitext(f)[1].lower()
+                        if ext in video_extensions:
+                            videos.append(os.path.join(item_path, f))
+        
+        # Also search in root of live_dir
+        # for f in os.listdir(live_dir):
+        #      if os.path.isfile(os.path.join(live_dir, f)):
+        #         ext = os.path.splitext(f)[1].lower()
+        #         if ext in video_extensions:
+        #             videos.append(os.path.join(live_dir, f))
+
+    except Exception:
+        pass
+    
+    if not videos:
+        return None
+    
+    return random.choice(videos)
+
+def get_random_cover(account_name: str):
+    account_dir = os.path.join(settings.FTP_ROOT_DIR, account_name)
+    cover_dir = os.path.join(account_dir, "live_cover")
+    if not os.path.exists(cover_dir):
+        return None
+    
+    covers = []
+    try:
+        for f in os.listdir(cover_dir):
+            if os.path.isfile(os.path.join(cover_dir, f)) and f.lower().endswith(('.jpg', '.png')):
+                covers.append(os.path.join(cover_dir, f))
+    except Exception:
+        pass
+
+    return random.choice(covers) if covers else None
 
 def broadcast_task(account_name: str, time_str: str):
     start_time = datetime.now()
@@ -85,62 +141,39 @@ def broadcast_task(account_name: str, time_str: str):
         title = group.title
         description = group.description
 
-    # Prepare arguments
-    # Usage: $0 <类别> <标题> <直播时段:2/7/10/22> [直播时长：默认是2.5h] [直播时间:2025-10-20] [直播说明]
-    category = account.name
-    timescope = time_str
-    duration_arg = str(account.duration)
-    run_date = datetime.now().strftime("%Y-%m-%d")
+    # Select Video
+    video_file = get_random_video(account_name)
+    if not video_file:
+        logger.error(f"No valid video files found for {account_name}")
+        append_broadcast_log(account_name, "FAILED", title, "No video files found", "0:00:00")
+        return
+
+    # Select Cover (Thumbnail)
+    cover_file = get_random_cover(account_name)
     
-    # Construct command
-    # We use "bash" explicitly
-    cmd = [
-        "bash",
-        settings.BROADCAST_SCRIPT_PATH,
-        category,
-        title,
-        timescope,
-        duration_arg,
-        run_date,
-        description
-    ]
-    
+    # Log file for this broadcast run
+    log_file = os.path.join(LOG_DIR, f"{account_name}_broadcast.log")
+
     try:
-        if os.name == 'nt':
-            # Mock execution on Windows
-            logger.info(f"[MOCK] Executing command: {' '.join(cmd)}")
-            append_broadcast_log(account_name, "MOCK_SUCCESS", title, "Windows Mock Execution", "0:00:00")
-        else:
-            logger.info(f"Executing command: {' '.join(cmd)}")
-            # Run in background (Popen)
-            # We want to detach it so it keeps running even if this thread finishes
-            # start_new_session=True creates a new process group
-            kwargs = {}
-            if os.name != 'nt':
-                kwargs['start_new_session'] = True
-            
-            proc = subprocess.Popen(
-                cmd, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE,
-                text=True,
-                **kwargs
-            )
-            
-            # We don't wait for it to finish because it's a live stream (hours)
-            # But we can check if it failed immediately?
-            # Maybe wait 1 second?
-            try:
-                outs, errs = proc.communicate(timeout=1)
-                if proc.returncode != 0:
-                    logger.error(f"Broadcast script failed immediately: {errs}")
-                    append_broadcast_log(account_name, "FAILED", title, f"Script Error: {errs}", "0:00:00")
-                    return
-            except subprocess.TimeoutExpired:
-                # This is good! It's running.
-                pass
-            
-            append_broadcast_log(account_name, "STARTED", title, f"PID: {proc.pid}", "0:00:00")
+        logger.info(f"Launching broadcast process for {account_name}")
+        
+        # Use multiprocessing to run the broadcast without blocking the scheduler
+        p = multiprocessing.Process(
+            target=upload_stream.run_broadcast,
+            kwargs={
+                "auth_dir": auth_dir,
+                "video_file": video_file,
+                "title": title,
+                "description": description,
+                "privacy_status": "public",
+                "duration": float(account.duration),
+                "thumbnail": cover_file,
+                "log_file": log_file
+            }
+        )
+        p.start()
+        
+        append_broadcast_log(account_name, "STARTED", title, f"PID: {p.pid} | Video: {os.path.basename(video_file)}", "0:00:00")
 
         # Update last broadcast time
         account.last_broadcast = datetime.now()
@@ -149,6 +182,7 @@ def broadcast_task(account_name: str, time_str: str):
     except Exception as e:
         logger.exception(f"Failed to start broadcast for {account_name}: {e}")
         append_broadcast_log(account_name, "ERROR", title, str(e), "0:00:00")
+
 
 def refresh_scheduler():
     """
