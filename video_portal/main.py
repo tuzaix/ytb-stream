@@ -118,13 +118,24 @@ async def get_system_status(token: str = Depends(oauth2_scheme)):
         target_dir = "."
 
     total, used, free = shutil.disk_usage(target_dir)
-    # Convert to GB
+    
+    # Reserve 10GB for system usage
     gb = 1024 ** 3
+    reserved_bytes = 10 * gb
+    
+    # Calculate effective total and free space after reservation
+    adjusted_total = max(0, total - reserved_bytes)
+    adjusted_free = max(0, free - reserved_bytes)
+    
+    percent = 0.0
+    if adjusted_total > 0:
+        percent = round((used / adjusted_total) * 100, 1)
+
     return {
-        "total_gb": round(total / gb, 2),
+        "total_gb": round(adjusted_total / gb, 2),
         "used_gb": round(used / gb, 2),
-        "free_gb": round(free / gb, 2),
-        "percent": round((used / total) * 100, 1)
+        "free_gb": round(adjusted_free / gb, 2),
+        "percent": percent
     }
 
 @app.post("/token")
