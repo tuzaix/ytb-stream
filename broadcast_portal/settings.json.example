@@ -1,0 +1,11 @@
+{
+    "ADMIN_USERNAME": "admin",
+    "ADMIN_PASSWORD": "password",
+    "ACCESS_TOKEN": "your-secret-token",
+    "MAX_ACCOUNTS": 10,
+    "SCHEDULER_MAX_WORKERS": 10,
+    "FTP_ROOT_DIR": "d:\\develop\\ytb-stream\\broadcast_portal\\ftp",
+    "SUBDIRS": "live,live_cover,auth2.0",
+    "BROADCAST_SCRIPT_PATH": "d:\\develop\\ytb-stream\\start-broadcast.sh",
+    "MAX_BROADCAST_TIMES_PER_ACCOUNT": 3
+}
