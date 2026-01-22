@@ -44,6 +44,41 @@ def get_directory_size_mb(directory: str) -> float:
 
 class AccountResponse(Account):
     disk_usage_mb: float = 0.0
+    pending_video_count: int = 0
+
+def get_pending_video_count(ftp_username: str) -> int:
+    """
+    Count videos in {ftp_root}/{username}/video/{subdir}/
+    Excluding subdirs ending with 'published'
+    """
+    account_dir = os.path.join(settings.FTP_ROOT_DIR, ftp_username)
+    video_root = os.path.join(account_dir, "video")
+    
+    if not os.path.exists(video_root):
+        return 0
+        
+    count = 0
+    try:
+        # Iterate over subdirectories in video_root
+        for item in os.listdir(video_root):
+            subdir_path = os.path.join(video_root, item)
+            
+            # We only care about directories
+            if not os.path.isdir(subdir_path):
+                continue
+                
+            # Exclude directories with 'published' suffix
+            if item.lower().endswith("published"):
+                continue
+            
+            # Count video files in this subdir
+            for f in os.listdir(subdir_path):
+                if f.lower().endswith(('.mp4', '.mkv', '.mov', '.avi', '.flv', '.webm')):
+                    count += 1
+    except Exception as e:
+        logger.error(f"Error counting videos for {ftp_username}: {e}")
+        return 0
+    return count
 
 def get_public_ip():
     global _public_ip_cache
@@ -159,8 +194,11 @@ def list_accounts(current_user: str = Depends(get_current_user)):
         account_dir = os.path.join(settings.FTP_ROOT_DIR, acc.ftp_username)
         size_mb = get_directory_size_mb(account_dir)
         
+        # Calculate pending video count
+        video_count = get_pending_video_count(acc.ftp_username)
+        
         # Create response object
-        acc_resp = AccountResponse(**acc.dict(), disk_usage_mb=size_mb)
+        acc_resp = AccountResponse(**acc.dict(), disk_usage_mb=size_mb, pending_video_count=video_count)
         response.append(acc_resp)
     return response
 
