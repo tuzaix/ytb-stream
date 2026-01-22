@@ -96,10 +96,10 @@
                     <!-- Status Badges -->
                     <div class="flex flex-wrap gap-2 mb-2">
                         <span :class="['px-2 py-1 text-xs rounded-full', account.auth_files_uploaded ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800']">
-                            {{ account.auth_files_uploaded ? '认证已配置' : '未配置认证' }}
+                            {{ account.auth_files_uploaded ? '已认证' : '未认证' }}
                         </span>
                         <span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">
-                            已使用存储: {{ formatDiskUsage(account.disk_usage_mb) }}
+                            已用: {{ formatDiskUsage(account.disk_usage_mb) }}
                         </span>
                         <span class="px-2 py-1 text-xs rounded-full bg-indigo-100 text-indigo-800">
                             未发布视频数: {{ account.pending_video_count || 0 }}
