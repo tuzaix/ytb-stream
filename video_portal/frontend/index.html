@@ -20,7 +20,7 @@
                 <div class="flex justify-between h-16">
                     <div class="flex">
                         <div class="flex-shrink-0 flex items-center">
-                            <h1 class="text-xl font-bold text-gray-800">视频发布管理系统</h1>
+                            <h1 class="text-xl font-bold text-gray-800">视频发布管理系统 V(<span class="text-red-600">{{ maxAccounts }}</span>个频道版)</h1>
                         </div>
                     </div>
                     <div class="flex items-center">
@@ -255,7 +255,7 @@
                         <input v-model="scheduleForm.publish_times[idx]" type="time" class="flex-1 border p-2 rounded mr-2">
                         <button @click="scheduleForm.publish_times.splice(idx, 1)" class="text-red-500 hover:text-red-700 font-bold" type="button">×</button>
                     </div>
-                    <button @click="scheduleForm.publish_times.push('10:00')" class="text-sm text-blue-500 hover:text-blue-700" type="button">+ 添加时间</button>
+                    <button @click="addPublishTime" class="text-sm text-blue-500 hover:text-blue-700" type="button">+ 添加时间</button>
                 </div>
                 <div class="flex justify-end space-x-2">
                     <button @click="showScheduleModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">取消</button>
@@ -320,6 +320,7 @@
                 const token = ref(localStorage.getItem('token'));
                 const accounts = ref([]);
                 const publicIp = ref('');
+                const maxAccounts = ref(0);
                 const loginForm = ref({ username: '', password: '' });
                 const loginError = ref('');
                 
@@ -412,6 +413,7 @@
                     try {
                         const res = await api.get('/system/info');
                         publicIp.value = res.data.public_ip;
+                        maxAccounts.value = res.data.max_accounts;
                     } catch (e) {
                         console.error("Failed to fetch system info", e);
                     }
@@ -533,6 +535,39 @@
                     showScheduleModal.value = true;
                 };
 
+                const addPublishTime = () => {
+                    const times = scheduleForm.value.publish_times;
+                    if (times.length === 0) {
+                        times.push('10:00');
+                    } else {
+                        // Find the last valid time string
+                        let lastTime = null;
+                        for (let i = times.length - 1; i >= 0; i--) {
+                            if (times[i]) {
+                                lastTime = times[i];
+                                break;
+                            }
+                        }
+
+                        if (!lastTime) {
+                            times.push('10:00');
+                        } else {
+                            try {
+                                const [h, m] = lastTime.split(':').map(Number);
+                                let newH = h + 1;
+                                // Handle overflow if needed, or just let it be (usually next day is fine conceptually, 
+                                // but for time input usually we wrap or clamp. Let's wrap 24h)
+                                if (newH >= 24) newH = newH % 24;
+                                
+                                const newTime = `${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                                times.push(newTime);
+                            } catch (e) {
+                                times.push('10:00');
+                            }
+                        }
+                    }
+                };
+
                 const saveSchedule = async () => {
                     const times = scheduleForm.value.publish_times.filter(t => t);
                     
@@ -614,6 +649,7 @@
                     accounts,
                     systemStatus,
                     publicIp,
+                    maxAccounts,
                     loginForm,
                     loginError,
                     login,
@@ -634,6 +670,7 @@
                     saveCopywriting,
                     showScheduleModal,
                     scheduleForm,
+                    addPublishTime,
                     saveSchedule,
                     openLogModal,
                     showLogModal,
