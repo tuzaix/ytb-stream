@@ -90,6 +90,19 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 async def read_index():
     return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
+@app.get("/system_status")
+async def get_system_status(token: str = Depends(oauth2_scheme)):
+    # Check disk usage of the current directory
+    total, used, free = shutil.disk_usage(".")
+    # Convert to GB
+    gb = 1024 ** 3
+    return {
+        "total_gb": round(total / gb, 2),
+        "used_gb": round(used / gb, 2),
+        "free_gb": round(free / gb, 2),
+        "percent": round((used / total) * 100, 1)
+    }
+
 @app.post("/token")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     if form_data.username == settings.ADMIN_USERNAME and form_data.password == settings.ADMIN_PASSWORD:
