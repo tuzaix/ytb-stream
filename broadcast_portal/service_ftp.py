@@ -95,10 +95,24 @@ def delete_ftp_account(username: str):
     
     try:
         logger.info(f"Executing FTP deletion script: {' '.join(cmd)}")
-        # For safety, we are not actually running the delete script in this adaptation 
-        # unless we are sure. But adhering to requirements:
-        # subprocess.run(cmd, check=True)
-        logger.info("FTP deletion script call is currently mocked/skipped for safety.")
+     
+        # Execute script, pipe 'y' to stdin for confirmation
+        process = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8"
+        )
+        stdout, stderr = process.communicate(input="y\n")
+        
+        if process.returncode != 0:
+            logger.error(f"FTP deletion failed. Stdout: {stdout}, Stderr: {stderr}")
+            raise subprocess.CalledProcessError(process.returncode, cmd, output=stdout, stderr=stderr)
+            
+        # logger.info(f"FTP deletion output: {stdout}")
+        logger.info("FTP deletion script call is currently commented out.")
 
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         if isinstance(e, subprocess.CalledProcessError):
