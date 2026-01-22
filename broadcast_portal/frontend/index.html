@@ -263,7 +263,7 @@
                         <input v-model="scheduleForm.broadcast_times[idx]" type="time" class="flex-1 border p-2 rounded mr-2">
                         <button @click="scheduleForm.broadcast_times.splice(idx, 1)" class="text-red-500 hover:text-red-700 font-bold" type="button">×</button>
                     </div>
-                    <button v-if="scheduleForm.broadcast_times.length < maxBroadcastTimes" @click="scheduleForm.broadcast_times.push('10:00')" class="text-sm text-blue-500 hover:text-blue-700" type="button">+ 添加时间</button>
+                    <button v-if="scheduleForm.broadcast_times.length < maxBroadcastTimes" @click="addScheduleTime" class="text-sm text-blue-500 hover:text-blue-700" type="button">+ 添加时间</button>
                     <p v-else class="text-xs text-red-500 mt-2">已达到最大直播时间设置数量 ({{ maxBroadcastTimes }})</p>
                 </div>
                 <div class="flex justify-end space-x-2">
@@ -515,6 +515,61 @@
                     showScheduleModal.value = true;
                 };
 
+                const addScheduleTime = () => {
+                    const times = scheduleForm.value.broadcast_times;
+                    
+                    // 寻找最后一个有效的时间格式 (HH:MM)
+                    let lastTime = null;
+                    // 从后往前找
+                    for (let i = times.length - 1; i >= 0; i--) {
+                        const t = times[i];
+                        if (t && typeof t === 'string' && t.match(/^\d{1,2}:\d{2}/)) {
+                            lastTime = t;
+                            break;
+                        }
+                    }
+
+                    // 如果找不到有效时间，默认添加 10:00
+                    if (!lastTime) {
+                        times.push('10:00');
+                        return;
+                    }
+
+                    try {
+                        const parts = lastTime.split(':');
+                        const h = parseInt(parts[0], 10);
+                        const m = parseInt(parts[1], 10);
+                        
+                        if (isNaN(h) || isNaN(m)) {
+                            throw new Error('Invalid time format');
+                        }
+
+                        const lastMinutes = h * 60 + m;
+                        
+                        // 获取时长 (确保是数字)
+                        let durationVal = parseFloat(scheduleForm.value.duration);
+                        if (isNaN(durationVal) || durationVal <= 0) {
+                            durationVal = 2.5; // Default fallback
+                        }
+                        
+                        // 增加时长 + 30分钟缓冲
+                        const durationMinutes = Math.ceil(durationVal * 60);
+                        let nextMinutes = lastMinutes + durationMinutes + 30;
+                        
+                        // 归一化到一天内
+                        nextMinutes = nextMinutes % (24 * 60);
+                        
+                        const nextH = Math.floor(nextMinutes / 60);
+                        const nextM = nextMinutes % 60;
+                        
+                        const nextTimeStr = `${String(nextH).padStart(2, '0')}:${String(nextM).padStart(2, '0')}`;
+                        times.push(nextTimeStr);
+                    } catch (e) {
+                        console.error("Error calculating next schedule time:", e);
+                        times.push('10:00');
+                    }
+                };
+
                 const saveSchedule = async () => {
                     // Check for duplicates
                     const times = scheduleForm.value.broadcast_times;
@@ -645,6 +700,7 @@
                     removeTitleItem,
                     saveTitleGroups,
                     openScheduleModal,
+                    addScheduleTime,
                     saveSchedule,
                     openLogModal,
                     copyToClipboard,
