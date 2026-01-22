@@ -26,6 +26,25 @@ logger = logging.getLogger(__name__)
 # Cache for public IP
 _public_ip_cache = None
 
+def get_directory_size_mb(directory: str) -> float:
+    total_size = 0
+    try:
+        if not os.path.exists(directory):
+            return 0.0
+        for dirpath, dirnames, filenames in os.walk(directory):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                # skip if it is symbolic link
+                if not os.path.islink(fp):
+                    total_size += os.path.getsize(fp)
+    except Exception as e:
+        logger.error(f"Error calculating size for {directory}: {e}")
+        return 0.0
+    return round(total_size / (1024 * 1024), 2)
+
+class AccountResponse(Account):
+    disk_usage_mb: float = 0.0
+
 def get_public_ip():
     global _public_ip_cache
     if _public_ip_cache:
@@ -92,8 +111,13 @@ async def read_index():
 
 @app.get("/system_status")
 async def get_system_status(token: str = Depends(oauth2_scheme)):
-    # Check disk usage of the current directory
-    total, used, free = shutil.disk_usage(".")
+    # Use the configured FTP root directory to check disk usage
+    target_dir = settings.FTP_ROOT_DIR
+    if not os.path.exists(target_dir):
+        # Fallback to current directory if FTP root doesn't exist yet
+        target_dir = "."
+
+    total, used, free = shutil.disk_usage(target_dir)
     # Convert to GB
     gb = 1024 ** 3
     return {
@@ -115,9 +139,19 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 def get_system_info(current_user: str = Depends(get_current_user)):
     return {"public_ip": get_public_ip()}
 
-@app.get("/accounts", response_model=List[Account])
+@app.get("/accounts", response_model=List[AccountResponse])
 def list_accounts(current_user: str = Depends(get_current_user)):
-    return list(load_accounts().values())
+    accounts = load_accounts().values()
+    response = []
+    for acc in accounts:
+        # Calculate disk usage
+        account_dir = os.path.join(settings.FTP_ROOT_DIR, acc.ftp_username)
+        size_mb = get_directory_size_mb(account_dir)
+        
+        # Create response object
+        acc_resp = AccountResponse(**acc.dict(), disk_usage_mb=size_mb)
+        response.append(acc_resp)
+    return response
 
 @app.post("/accounts", response_model=Account)
 def create_account(account_in: AccountCreate, current_user: str = Depends(get_current_user)):
