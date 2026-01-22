@@ -22,12 +22,12 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # 创建配置
-cd /yourpath/service/ytb-stream/video_portal
+cd /yourpath/service/ytb-stream/broadcast_portal
 cp settings.json.example settings.json
 
 # 启动应用
-cd /yourpath/service/ytb-stream/video_portal
-/yourpath/service/ytb-stream/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+cd /yourpath/service/ytb-stream/broadcast_portal
+/yourpath/service/ytb-stream/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8001
 
 
 # 配置nginx
@@ -40,7 +40,7 @@ server {
     server_name yourdomain;
 
     location / {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8001;
 
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -67,18 +67,18 @@ nginx -t
 sudo systemctl restart nginx
 
 # 配置systemd服务
-/etc/systemd/system/video-portal.service
+/etc/systemd/system/broadcast-portal.service
 ```
 [Unit]
-Description=Video Portal Backend Service
+Description=Broadcast Portal Backend Service
 After=network.target vsftpd.service
 
 [Service]
 # 必须使用 root 用户，因为需要创建系统 FTP 账户
 User=root
 Group=root
-WorkingDirectory=/root/work/service/ytb-stream/video_portal
-ExecStart=/root/work/service/ytb-stream/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+WorkingDirectory=/root/work/service/ytb-stream/broadcast_portal
+ExecStart=/root/work/service/ytb-stream/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8001
 # 失败自动重启
 Restart=always
 RestartSec=5
@@ -89,16 +89,16 @@ RestartSec=5
 # Environment="ACCESS_TOKEN=这里填写您的API令牌"
 
 # 日志输出
-StandardOutput=append:/var/log/video_portal.log
-StandardError=append:/var/log/video_portal.error.log
+StandardOutput=append:/var/log/broadcast_portal.log
+StandardError=append:/var/log/broadcast_portal.error.log
 
 [Install]
 WantedBy=multi-user.target
 ```
 
 # 启动服务
-sudo systemctl enable video-portal.service
-sudo systemctl start video-portal.service
+sudo systemctl enable broadcast-portal.service
+sudo systemctl start broadcast-portal.service
 
 
 # 下面是配置域名等工作 
