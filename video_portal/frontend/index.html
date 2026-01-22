@@ -99,7 +99,7 @@
                             {{ account.auth_files_uploaded ? '认证已配置' : '未配置认证' }}
                         </span>
                         <span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">
-                            已使用存储: {{ account.disk_usage_mb }} MB
+                            已使用存储: {{ formatDiskUsage(account.disk_usage_mb) }}
                         </span>
                     </div>
                     <!-- Publish Times -->
@@ -581,6 +581,14 @@
                     currentTime.value = `${y}-${m}-${d} ${h}:${min}:${s}`;
                 };
 
+                const formatDiskUsage = (mb) => {
+                    if (!mb) return '0 MB';
+                    if (mb >= 1024) {
+                        return (mb / 1024).toFixed(2) + ' GB';
+                    }
+                    return mb + ' MB';
+                };
+
                 onMounted(() => {
                     updateTime();
                     // Sync with the start of the next second
@@ -628,6 +636,7 @@
                     showLogModal,
                     logList,
                     currentTime,
+                    formatDiskUsage,
                     openAuthModal,
                     openCopywritingModal,
                     openScheduleModal,
