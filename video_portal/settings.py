@@ -39,6 +39,9 @@ ACCESS_TOKEN = os.getenv("ACCESS_TOKEN", _config.get("ACCESS_TOKEN", "fake-super
 # 限制创建的账户群个数
 MAX_ACCOUNTS = int(os.getenv("MAX_ACCOUNTS", _config.get("MAX_ACCOUNTS", 6)))
 
+# 限制每个账户的发布时间数量
+MAX_PUBLISH_TIMES_PER_ACCOUNT = int(os.getenv("MAX_PUBLISH_TIMES_PER_ACCOUNT", _config.get("MAX_PUBLISH_TIMES_PER_ACCOUNT", 5)))
+
 # 调度器最大并发线程数
 SCHEDULER_MAX_WORKERS = int(os.getenv("SCHEDULER_MAX_WORKERS", _config.get("SCHEDULER_MAX_WORKERS", 10)))
 

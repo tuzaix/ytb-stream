@@ -6,5 +6,5 @@
     "SCHEDULER_MAX_WORKERS": 10,
     "FTP_ROOT_DIR": "d:\\develop\\ytb-stream\\broadcast_portal\\ftp",
     "SUBDIRS": "live,live_cover,auth2.0",
-    "MAX_BROADCAST_TIMES_PER_ACCOUNT": 3
+    "MAX_BROADCAST_TIMES_PER_ACCOUNT": 10
 }

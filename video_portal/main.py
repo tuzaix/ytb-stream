@@ -185,7 +185,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 def get_system_info(current_user: str = Depends(get_current_user)):
     return {
         "public_ip": get_public_ip(),
-        "max_accounts": settings.MAX_ACCOUNTS
+        "max_accounts": settings.MAX_ACCOUNTS,
+        "max_publish_times": getattr(settings, "MAX_PUBLISH_TIMES_PER_ACCOUNT", 5)
     }
 
 @app.get("/accounts", response_model=List[AccountResponse])
